@@ -1,2 +1,8 @@
 build/
 .obsidian/
+.dsh/
+.codegraph/
+.DS_Store
+.idea/
+.vscode/
+*.swp

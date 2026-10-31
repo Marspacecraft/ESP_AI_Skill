@@ -1,0 +1,12 @@
+# platform-port —— 未定与未实现事项
+
+> 平台契约的**描述文档已停止维护**（见 [platform-port.md](platform-port.md)）：它读起来像接口说明，而权威定义应是头文件。后续重写。
+
+## 还没落地
+
+- `platform/port/pf_ops.h` 不存在。九项操作目前只有文字描述，没有任何可 include 的头。
+- `platform/port/pf_rtos.h` 不存在。RTOS 原语兼容接口（任务 4、延时 2、互斥 3、信号量 4、队列 5，共 18 项）只有清单，没有签名。
+- `tests/port/` 一致性套件不存在。平台实现方目前没有任何"离线自证写对了"的手段，九项语义错误只能等真机偶发故障才暴露。
+- `platform/` 下一块板子都没有：`platform/host-fake/`、`platform/metalio_eink_4_plus/`、`platform/otherplatform/` 都只是 `policy.txt` 里的预留前缀。
+
+**本文件待删除。**

@@ -1,0 +1,104 @@
+# policy.txt —— 代码访问权限的唯一事实来源
+#
+# ============================================================================
+#  状 态 ：定稿 v1.5（2026-10-30 评审通过）
+#  变 更 ：v1.5 只改一处 —— 把 skills/ 从 role 5 的写区摘掉。
+#          理由：AI 能改 skill，就能改自己的考卷（实测已发生：某次实现任务把三份 skill 列进改动清单）。
+#          其余 role / read 数据与 v1.4 逐字一致。
+#  本文件已定稿，不得随意修改。要改必须走评审：
+#    提出改动理由 + diff 提案 → 得到明确批准 → 才落盘 → 升版本号
+#    若改的是读/写**语义**（不只是加一个路径前缀）。未经评审的改动一律视为缺陷。
+#   （它是唯一机器可读的权限数据。改错一行 = 所有人的权限判定都错，而失效方式是静默的，所以这里不设"小改不用审"的例外。）
+# ============================================================================
+#
+# 语义与理由见 docs/access-control.md。本文件只有数据，没有逻辑。
+# 格式与 tools/purity_rules.txt 一致：一行一条，空格分隔，无嵌套、无引号。
+# （不用 TOML/JSON 的原因：本机 python 是 3.11.0a3，没有 tomllib；JSON 又放不下注释。
+#   行格式零依赖、diff 友好，且与仓库里已有的规则文件同一种写法。）
+#
+# 两行语法：
+#   role  <tag> <名字> <可写路径前缀>...    一个文件的角色集合 = 匹配它的最长前缀（可以多条）
+#   read  <路径前缀> <允许读它的 tag>...    最长前缀优先；未列出的路径 = 谁都不能读、不能写
+#
+# 一个文件可以有多个角色：命中**同样长度**的最长前缀时全部生效（并集放行），
+#   不按行序取第一个。所以判定结果与遍历顺序无关。
+#   目前唯一的例子是 `apps/app_manifest.c` / `.h`（role 1 与 role 2 共写）。
+#
+# 路径不含空格；目录以 / 结尾，单个文件写全名。
+# 没有出现在任何 role 行里的路径 = 只有人能写。
+# r 的含义是"允许 #include 该路径的头"。**能链接一个符号 = 能 #include 声明它的那个头**；
+#   实现在 .c 里，.c 的读权只影响"能不能看/改源码"，不影响链接。
+# 真正的"能不能调某个函数"由符号判定管（声明必须落在调用者不可写的头里）。
+
+# ---------------------------------------------------------------- tag 是什么
+# tag 是**架构分层**，不是人。一个人可以同时持有多个 tag；同一层可以有多个人。
+#   1 应用层   系统 App：管理器（id 1）与各服务 App
+#   2 应用层   AI / 业务 App
+#   3 框架层   机制、生命周期、注册表、事件
+#   4 平台层   plat_ops_t 的实现。**虚拟平台与所有真实板共用 tag 4**，不按板再拆
+#   5 接口层   api/、platform 公共接口、门禁、文档 —— 只定义，不实现业务
+# 跨层只能通过 api/。两个 tag 不得互相链接对方的符号。
+
+# ---------------------------------------------------------------- 角色与写权限
+role 1 sysapp     apps/system/ apps/app_manifest.c apps/app_manifest.h tests/sys/ docs/sys/
+role 2 aiapp      apps/demo/ apps/app_manifest.c apps/app_manifest.h tests/app/ docs/app/
+role 3 framework  framework/ tests/framework/ docs/framework/
+role 4 platform   platform/host-fake/ platform/metalio_eink_4_plus/ platform/otherplatform/ tests/platform/ docs/platform/
+role 5 api        api/ apps/ common/ platform/ tests/ tools/ docs/
+
+# `apps/` 整棵归 tag 5（App 层共享头放那儿），只有 `app_manifest.c` / `.h` 两个文件是例外，
+#   写权同时划给 tag 1 与 tag 2：清单只有一份，谁的 App 谁往末尾追加自己的条目。
+#   这两个文件另给 tag 3 读权（框架侧要读清单：合并、查重 id）。
+# 加一块新板 = 人在 role 4 行尾追加一个前缀，不新增 tag。
+# 注意：role 5 写了整个 `platform/`，所以新板目录**漏加**前缀时不会红，而是静默归给接口层。
+#   这是刻意的取舍：`platform/port/`、`platform/README.md` 这些公共部分必须有人维护，
+#   宁可让"加板漏写前缀"靠 review 拦住，也不留"无人可写"的死洞。
+# 仓库根下**新出现的顶层目录不属于任何人**（role 5 只列了具名目录，没有 catch-all）。
+#   这是刻意接受的：新建顶层目录必须先由人在本文件加一行，否则它谁也写不了。
+#   （上一版写"漏加 → 落到未列出 → 门禁直接红，失败方向是安全的"，在 role 5 拿到
+#    `platform/` 之后对平台目录不再成立，对顶层目录仍成立（无人可写 = 红）。）
+
+# ---------------------------------------------------------------- 读权限
+# 完整 = 能 include 该路径的头。能链接一个符号 = 能 include 声明它的头（见文首）。
+# 缺一行 = 编译或链接失败。
+read api/                            5
+read api/af_api/                     1 2 3 5
+read api/fp_api/                     3 4 5
+read apps/                           1 2 5
+read apps/app_manifest.c             1 2 3
+read apps/app_manifest.h             1 2 3
+read apps/system/                    1
+read apps/demo/                      2
+read common/                         1 2 3 4 5
+read framework/                      3 5
+read framework/include/              1 3 5
+read platform/                       3 4 5
+read platform/host-fake/             3 4 5
+read platform/metalio_eink_4_plus/   4 5
+read platform/otherplatform/         4 5
+read tests/                          1 2 3 4 5
+read docs/                           1 2 3 4 5
+read skills/                         1 2 3 4 5
+
+# `framework/include/` 必须给 tag 1：管理器（id 1）要 include `fw_app.h` 调控制面
+#   （`fw_app_state_of()` / `fw_app_stop()`），否则 sysapp 链不上框架，整机起不来。
+#   只给 `include/`、不给整个 `framework/`：tag 1 只需要声明，不需要看实现；
+#   写权仍在 role 3。**tag 2 一处都不给** —— AI 的 App 只该看到 `api/af_api/` 与 `common/`。
+# `framework/` 必须给 tag 5：`tests/baseline/` 的生命周期测试要直接驱动框架；
+#   它不是让 tag 5 去改实现（写权在 role 3）。
+# `common/` 必须给全部 tag：所有人 include `cm_*`，缺一个就编译不过。
+# `platform/` 必须给 tag 4：板子读不到 `plat_ops_t` 就实现不了。
+# `platform/host-fake/` 必须给 tag 3：`tests/framework/` 要链接 host-fake 的 `g_plat_ops`。
+# `api/fp_api/` 必须给 tag 4，`api/af_api/` 必须给 tag 1 —— 缺任一行都是链接期才报错。
+
+# ---------------------------------------------------------------- 刻意不列
+# = 谁都不能读、不能写，只有人能动：
+#   构建与 CI  CMakeLists.txt / partitions.csv / sdkconfig.defaults / .github/
+#   契约本身   policy.txt 自己
+#   考卷      skills/（v1.5 起从 role 5 摘掉：AI 能改 skill 就能改约束本身）
+# 理由：能改构建系统就能加 -I、改链接、让 CI 永远绿，前面所有判定一次作废。
+#
+# 待收紧（现在还没做，先记着）：
+#   tools/  目前还给 tag 5 写，因为门禁要由接口层搭起来、还要能自测。
+#   等门禁稳定后，这条前缀也应从 role 5 摘掉，回归"只有人能写"。
+#   （skills/ 已在 v1.5 摘掉，见上。）

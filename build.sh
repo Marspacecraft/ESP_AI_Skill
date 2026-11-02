@@ -20,6 +20,15 @@ cd "$ROOT"
 
 CC=${CC:-cc}
 WARN="-std=c11 -Wall -Wextra -Werror"
+# -std=c11 会关掉 glibc 的 POSIX 默认暴露（__STRICT_ANSI__），
+# clock_gettime / nanosleep / pthread_* 就都不声明了；显式要 POSIX.1-2008。
+DEFS="-D_POSIX_C_SOURCE=200809L"
+# macOS 在 __STRICT_ANSI__ 下只暴露 POSIX 子集，pthread_setname_np 这类
+# 非 POSIX 扩展会消失；_DARWIN_C_SOURCE 把完整 Darwin API 要回来（Linux 无影响）。
+case "$(uname -s)" in
+    Darwin) DEFS="$DEFS -D_DARWIN_C_SOURCE" ;;
+esac
+THREADS="-pthread"          # platform/host-fake 用 pthread 实现端口九项
 INC="-I. -Icommon/include -Itests"
 OUT=build
 
@@ -39,7 +48,7 @@ build_one() {
     log="$OUT/$name.log"
     # $WARN $INC $LIBSRC 要按空格拆分，故意不加引号。
     # shellcheck disable=SC2086
-    if $CC $WARN $INC -o "$OUT/$name" "$src" $LIBSRC 2>"$log"; then
+    if $CC $WARN $DEFS $THREADS $INC -o "$OUT/$name" "$src" $LIBSRC 2>"$log"; then
         echo "BUILD ok   $name"
         return 0
     fi

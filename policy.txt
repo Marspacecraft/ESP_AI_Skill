@@ -1,0 +1,48 @@
+# ESP AI Skill —— 工作区策略（v0.1，2026-11-02）
+
+# ── 本文件唯一的语义：默认放开 + 显式收敛 ──────────────────────
+# **只有本文件写了的路径受约束，没写的路径不约束**。
+# （早期还有一份「默认拒绝 + 白名单」的根目录策略，2026-11-02 已随旧仓库删除。）
+# 人（2026-11-02）拍板的口径：只约束已经配置的目录，没有配置的目录不约束。
+#
+# 三个词在这里的意思（别混）：
+#   write = 实现能不能放在这里、参与编译链接
+#   link  = 能不能 include / 链接这里的头（**不是"能不能看"**；查看源码永远不受限）
+#   nobody= 只有人能改
+#
+# 读权不传递（D2）：能 include 一个头，不等于能 include 它 include 的东西。
+# 公开头的依赖闭包必须落在读者自己的 link 集合里；撑破闭包时错在那个头，不在调用方。
+
+default: allow
+
+# ── 角色 ────────────────────────────────────────────────────────
+# tag 编号沿用旧仓库（1 sysapp / 2 aiapp / 3 framework / 4 platform / 5 api），
+# 便于将来合并时对账；一个人的写权看下面各行的并集，不看身份。
+
+role 1  sysapp     apps/system/            tests/sys/             docs/sys/
+role 2  aiapp      apps/demo/              apps/app_manifest.c    apps/app_manifest.h
+                   tests/app/              docs/app/
+role 3  framework  framework/              tests/framework/       docs/framework/
+role 4  platform   platform/host-fake/     platform/metalio_eink_4_plus/   tests/platform/
+                   docs/platform/
+role 5  api        api/                    common/                tools/
+                   tests/support/          tests/tinytest.h       platform/port/
+                   docs/
+
+# 两类人写的文件：AI 一律不写（发现不对 → 报告，不要自己改）
+nobody policy.txt  实施步骤.md  build.sh
+
+# ── link（可链接集合）──────────────────────────────────────────
+# App 与框架：common/ 是所有人的公共库；api/af_api/ 是 App 的门面；
+# framework/include/ 是 App 调 fw_delay_block 等符号的唯一来处。
+link 1 2 3 4 5   common/
+link 1 2 3       api/af_api/   framework/include/
+# 平台契约只给框架与平台，tag 1/2 看不到 pf_ops_t —— 这是"App 的编译单元里不存在平台表"的保证。
+link 3 4 5   platform/port/
+
+# ── 现在还不强制的部分（诚实标注）──────────────────────────────
+# 本仓库根目录就是全部产出地（人 2026-11-02 定），所以这里不留 ../ 的跨目录依赖。
+# 本文件目前是一份**声明**：工作区还没有检查器。步骤 0.5 会写
+# tools/check_workspace_policy.py 把 write / nobody 判定接上；
+# link 的闭包判定要用 clang -M（正则看不见 #include_next 与 ..），排在 0.5 之后。
+# 在 0.5 完成之前，本文件里的 write 行是"约定"，不是"门禁"。

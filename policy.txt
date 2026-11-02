@@ -40,9 +40,12 @@ link 1 2 3       api/af_api/   framework/include/
 # 平台契约只给框架与平台，tag 1/2 看不到 pf_ops_t —— 这是"App 的编译单元里不存在平台表"的保证。
 link 3 4 5   platform/port/
 
-# ── 现在还不强制的部分（诚实标注）──────────────────────────────
+# ── 强制到什么程度（诚实标注）────────────────────────────────
 # 本仓库根目录就是全部产出地（人 2026-11-02 定），所以这里不留 ../ 的跨目录依赖。
-# 本文件目前是一份**声明**：工作区还没有检查器。步骤 0.5 会写
-# tools/check_workspace_policy.py 把 write / nobody 判定接上；
-# link 的闭包判定要用 clang -M（正则看不见 #include_next 与 ..），排在 0.5 之后。
-# 在 0.5 完成之前，本文件里的 write 行是"约定"，不是"门禁"。
+#
+# write 面：**已接上** —— python3 tools/check_workspace_policy.py --as <tag> <路径...>
+#           命中 nobody 一律拒；命中 role 要身份匹配；谁都没覆盖按 default。
+#           策略自身自相矛盾时它拒绝下判断（退出码 2），不会拿坏规则判人。
+#
+# link 面：**还没接** —— 要 clang -M 取依赖闭包（正则看不见 #include_next 与 ..）。
+#          在那之前，下面的 link 行是"约定"，不是"门禁"。

@@ -349,9 +349,19 @@ TT_CASE(two_producers_one_topic_measures_the_loss)
     pthread_join(t1, NULL);
     pthread_join(t2, NULL); /* 必须先等它们真的退出，再碰表 */
 #endif
-    /* 收尾：把生产者退出前落在队列里的取干净。 */
-    while (fw_event_take(T_LEAK, out, sizeof out, &len) == CM_OK) {
-        flag_add(&g_taken);
+    /* 收尾：把生产者退出前落在队列里的取干净。
+     *
+     * **必须有上限**：这个用例故意让两个生产者写在同一个 topic 上（违反 D28），
+     * `head` 因此可能被回退，队列不变量会坏。没有上限的 `while (take == CM_OK)`
+     * 曾经真的挂死过（TSan 下 30 次里 1 次，表现为 60s 超时而不是 FAIL）——
+     * 测试的失败形态必须是"红"，不能是"卡住"。 */
+    {
+        uint32_t drain_deadline = now_ms();
+
+        while ((uint32_t)(now_ms() - drain_deadline) < 2000u
+               && fw_event_take(T_LEAK, out, sizeof out, &len) == CM_OK) {
+            flag_add(&g_taken);
+        }
     }
 
     ok = flag_get(&g_ok_posts);

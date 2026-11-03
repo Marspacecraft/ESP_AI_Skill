@@ -114,6 +114,7 @@ static cm_err_t event_get(evt_topic_t topic, void *buf, size_t cap, size_t *out_
     struct fw_evt_topic *t = topic_find(topic);
     uint32_t tl;
     uint32_t h;
+    uint32_t pending;
     size_t payload;
     struct fw_evt_slot *slot;
 
@@ -126,9 +127,21 @@ static cm_err_t event_get(evt_topic_t topic, void *buf, size_t cap, size_t *out_
     }
     tl = __atomic_load_n(&t->tail, __ATOMIC_RELAXED);
     h = __atomic_load_n(&t->head, __ATOMIC_ACQUIRE);
-    if (tl == h) {
+    /* `head - tail` 是这个环的**唯一不变量**：0 = 空，1..DEPTH-1 = 有货。
+     *
+     * 两个生产者同时写同一个 topic（D28 禁止的事）时，`head` 可能被后写的
+     * 生产者用旧值覆盖回去（A 读到 h=10 挂起 → B 推到 13 → A 存回 11）。
+     * 这时 `head - tail` 会翻成一个巨大值。若这里只判 `tl == h`，队列看起来
+     * "永远有货"，消费者会无限读下去——**测试挂死而不是变红**，这是最坏的失败形态。
+     * 所以越界一律当成不变量被破坏，明确返回错误。 */
+    pending = (uint32_t)(h - tl);
+    if (pending == 0u) {
         return CM_ERR_TIMEOUT; /* "现在没有"，不是错误 */
     }
+    if (pending > FW_EVENT_DEPTH) {
+        return CM_ERR_STATE;   /* 生产者违反了单写者前提：head 被回退过 */
+    }
+    /* `pending == FW_EVENT_DEPTH` 是**满**，不是坏——照常取。 */
     slot = &t->slots[tl % FW_EVENT_DEPTH];
     memcpy(buf, slot->buf, payload);
     if (out_len != NULL) {

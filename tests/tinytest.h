@@ -29,6 +29,12 @@
  *   - 每条输出都 fflush——超时被杀时，已经跑过的结果要留得住；
  *   - SKIP 不算失败（tt_summary 返回 0），但 **SKIP 不是通过**：
  *     SUMMARY 里 skip=K 是在提醒"这几条没验"。
+ *
+ * 超时保护（只在 POSIX 宿主上生效，真机不走这条路）：
+ *   每条用例默认 60 秒（`-DTT_TIMEOUT_SEC=10` 可改）。超时会打印
+ *   `FAIL <case> -- 超时（Ns）没有返回：卡住也是一种失败 | tinytest.h` 并以 1 退出。
+ *   为什么需要它：没有它，"该返回的没返回"会让整轮测试**挂死**——挂死既不是绿
+ *   也不是红，CI 上表现为"卡住"，人得盯屏幕才知道。有了它，卡住 = 红。
  */
 #ifndef ESP_AI_SKILL_TINYTEST_H
 #define ESP_AI_SKILL_TINYTEST_H
@@ -46,6 +52,14 @@ extern "C" {
 #define TT_UNUSED
 #endif
 
+#if defined(__unix__) || defined(__APPLE__)
+#define TT_HAVE_TIMEOUT 1
+#endif
+
+#ifndef TT_TIMEOUT_SEC
+#define TT_TIMEOUT_SEC 60
+#endif
+
 typedef struct {
     int pass;
     int fail;
@@ -58,9 +72,33 @@ typedef struct {
 TT_UNUSED static tt_state_t tt_state = { 0, 0, 0, 0, 0, "test" };
 TT_UNUSED static const char *tt_case = "?";
 
+#ifdef TT_HAVE_TIMEOUT
+#include <signal.h>
+#include <unistd.h>
+
+/* 信号处理里能做的事很少：不能 printf（不可重入）、不能 malloc。所以这行
+ * 消息在**进入用例之前**就拼好，处理函数只做一次 write + _exit。 */
+TT_UNUSED static char tt_timeout_msg[256];
+TT_UNUSED static int tt_timeout_len;
+
+TT_UNUSED static void tt_on_alarm(int sig)
+{
+    (void)sig;
+    if (tt_timeout_len > 0) {
+        (void)!write(STDOUT_FILENO, tt_timeout_msg, (size_t)tt_timeout_len);
+    }
+    /* _exit 而不是 exit：不在信号处理里跑 atexit/stdio 收尾（那是不安全的）。 */
+    _exit(1);
+}
+#endif
+
 TT_UNUSED static void tt_set_program(const char *name)
 {
     tt_state.program = name;
+#ifdef TT_HAVE_TIMEOUT
+    (void)signal(SIGALRM, tt_on_alarm);
+    (void)alarm(TT_TIMEOUT_SEC);
+#endif
 }
 
 TT_UNUSED static void tt_fail(const char *file, int line, const char *msg)
@@ -82,6 +120,13 @@ TT_UNUSED static void tt_run(const char *name, void (*fn)(void))
     tt_state.case_failed = 0;
     tt_state.case_skipped = 0;
     tt_case = name;
+#ifdef TT_HAVE_TIMEOUT
+    /* 倒计时**按用例重置**：一条慢用例不该把后面的几条一起拖死。 */
+    tt_timeout_len = snprintf(tt_timeout_msg, sizeof tt_timeout_msg,
+                              "FAIL %s -- 超时（%ds）没有返回：卡住也是一种失败 | tinytest.h\n",
+                              name, (int)TT_TIMEOUT_SEC);
+    (void)alarm(TT_TIMEOUT_SEC);
+#endif
     fn();
 
     if (tt_state.case_skipped) {

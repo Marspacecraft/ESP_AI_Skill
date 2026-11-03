@@ -262,3 +262,17 @@ const pf_ops_t *pf_host_fake_ops_get(void)
 {
     return &pf_host_fake_ops;
 }
+
+const pf_ops_t *pf_platform_ops(void)
+{
+    return &pf_host_fake_ops;
+}
+
+void pf_platform_log(const char *line)
+{
+    if (line == NULL) {
+        return;
+    }
+    /* stderr 不缓冲：进程被 abort() 掉的时候，缓冲区里的日志会一起消失。 */
+    fprintf(stderr, "%s\n", line);
+}

@@ -61,6 +61,18 @@ const pf_ops_t *fw_ops(void);
  *                   `flags` 只有 `APP_FLAG_SYSTEM`、`stack_bytes >= APP_STACK_MIN`、
  *                   **id 不得重复**。空清单（`count==0` 的那一份）合法，跳过。
  */
+/** 启动序列的可测部分：bind → init → boot（步骤 4.1）。
+ *
+ * @param ops 平台表，不得为 NULL；为 NULL 时直接 `CM_ERR_INVALID`（不尝试用空表启动）。
+ * @param man App 清单，不得为 NULL；`count == 0` 由 `fw_init()` 判 `CM_ERR_INVALID`。
+ * @return bind/init/boot 三段的第一个失败码。
+ *         线程与中断：只在启动阶段（`app_main()` 里）调用一次；ISR 禁止。
+ *         注意事项：**全进程只该调一次**——第二次会因为"已绑表/已 boot"返回
+ *                   `CM_ERR_STATE`。它的存在只为让测试能验启动顺序；
+ *                   生产路径是 `app_main()` 一个人走完。
+ */
+cm_err_t fw_startup(const pf_ops_t *ops, const fw_manifest_t *man);
+
 cm_err_t fw_init(const fw_manifest_t *manifests, uint32_t count);
 
 /** 已注册的 App 个数。未初始化时返回 0。

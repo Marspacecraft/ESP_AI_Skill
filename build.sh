@@ -95,4 +95,12 @@ for t in $built; do
     fi
 done
 
+# 静态自检：不是测试，靠退出码判定。任何一条红了都算整轮失败。
+#   check_entry_unique.sh —— 全仓只许有一处 app_main（决定 32）。
+if [ -x tests/tools/check_entry_unique.sh ]; then
+    if ! tests/tools/check_entry_unique.sh; then
+        rc=1
+    fi
+fi
+
 exit "$rc"

@@ -16,3 +16,8 @@ const fw_manifest_t apps_manifest = {
     s_apps,
     (uint32_t)(sizeof s_apps / sizeof s_apps[0]),
 };
+
+const fw_manifest_t *app_manifest_primary(void)
+{
+    return &apps_manifest;
+}

@@ -105,6 +105,17 @@ typedef struct fw_manifest {
     uint32_t count;                /**< 0 表示这份清单为空（合法，但不算启动成功） */
 } fw_manifest_t;
 
+/** 本仓库自带的 App 清单。**由 App 层实现**（`apps/app_manifest.c`）。
+ *
+ * @return 指向静态清单的指针，**不得为 NULL**；`count == 0` 视为"没有任何 App"，
+ *         `fw_init()` 会以 `CM_ERR_INVALID` 拒绝启动。
+ *         线程与中断：只在启动阶段调用一次；实现必须是"返回常量地址"这种无副作用形态
+ *                     （`app_main()` 之前不允许分配内存——那时 `fw_alloc` 还没绑表）。
+ *         注意事项：框架不知道自己链接了哪些 App，**只能问这个函数**。加 App 就是
+ *                   改 `apps/app_manifest.c` 一处，不用动框架。
+ */
+const fw_manifest_t *app_manifest_primary(void);
+
 /* ── 使用面（App 能调的全部框架函数，v1 就这五个）───────────────── */
 
 /** 伪阻塞延时：等至少 ms 毫秒，**返回之后的行可能永远不执行**。

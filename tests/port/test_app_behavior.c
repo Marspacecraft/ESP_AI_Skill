@@ -18,6 +18,13 @@
 #include "framework/src/fw_internal.h"
 #include "platform/port/pf_ops.h"
 
+#if defined(ESP_PLATFORM)
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#else
+#include <time.h>
+#endif
+
 /* ------------------------------------------------------------------ */
 /* 观测点：跨任务读写，全部走原子（否则 TSan 与真机都可能给出假绿）        */
 /* ------------------------------------------------------------------ */
@@ -39,6 +46,41 @@ static void ok_task(app_ctx_t *ctx) { (void)ctx; for (;;) { obs_add(&g_ticks); f
 
 static cm_err_t bad_init(app_ctx_t *ctx) { (void)ctx; obs_add(&g_init_calls); return CM_ERR_INVALID; }
 
+/* "非框架循环"：**不**调任何 `fw_*` 阻塞接口，所以心跳一次都不会被喂。
+ * 这就是 D29 说的那一类——框架能发现它，但没有办法让它自己停下。
+ *
+ * 为什么每轮让出 1 tick（`vTaskDelay(1)` / `nanosleep`）而不是空转：
+ * **真·空转在板子上会把优先级更低的测试任务饿死**——第一次上机就是
+ * `task_wdt: Task watchdog got triggered` 连打、`PASS` 一行都没出来，
+ * 观测者自己先停了。这个现象本身就是 D29 的证据：纯死循环在现场的
+ * 表现不是"App 卡住"，而是"整机没法被任何软件手段观测或停下"。
+ * 让出一 tick 之后，我们还能观测到"心跳没喂 + 取消位无效"这两条。 */
+static int g_spin;
+
+static void spin_yield(void)
+{
+#if defined(ESP_PLATFORM)
+    vTaskDelay(1);
+#else
+    {
+        struct timespec ts;
+
+        ts.tv_sec = 0;
+        ts.tv_nsec = 1000000L;
+        (void)nanosleep(&ts, NULL);
+    }
+#endif
+}
+
+static void spin_task(app_ctx_t *ctx)
+{
+    (void)ctx;
+    while (obs_get(&g_spin)) {
+        obs_add(&g_ticks);
+        spin_yield();
+    }
+}
+
 /* 一次要 1000 ms 的延时：用来证明"切片"真的把长等待切碎了。 */
 static void slow_task(app_ctx_t *ctx) { (void)ctx; obs_add(&g_ticks); fw_delay_block(1000u); obs_add(&g_ticks); }
 
@@ -48,6 +90,10 @@ static const app_desc_t ok_desc = {
 };
 static const app_desc_t bad_desc = {
     .id = 41u, .name = "beh_bad", .init = bad_init, .exit = ok_exit, .task = ok_task,
+    .stack_bytes = APP_STACK_MIN, .flags = APP_FLAG_SYSTEM,
+};
+static const app_desc_t spin_desc = {
+    .id = 43u, .name = "beh_spin", .init = ok_init, .exit = ok_exit, .task = spin_task,
     .stack_bytes = APP_STACK_MIN, .flags = APP_FLAG_SYSTEM,
 };
 static const app_desc_t slow_desc = {
@@ -211,6 +257,36 @@ TT_CASE(init_failure_becomes_failed_and_exits_once)
     reset_all();
 }
 
+TT_CASE(busy_loop_is_detected_but_cancel_does_not_stop_it)
+{
+    fw_manifest_t m = manifest_of(&spin_desc);
+    struct fw_app_ctx *c;
+
+    reset_all();
+    __atomic_store_n(&g_spin, 1, __ATOMIC_RELEASE);
+
+    TT_ASSERT_INT(CM_OK, fw_embed_start(&m));
+    c = fw_live_at(0u);
+    TT_ASSERT_TRUE(c != NULL);
+
+    /* 150 ms 一次心跳都没喂：必须被发现。 */
+    pf_platform_ops()->sleep_ms(150u);
+    TT_ASSERT_INT(1, fw_app_is_stalled(&c->pub, 100u));
+
+    /* 置取消位也救不了它——它压根不经过任何阻塞接口。 */
+    fw_app_request_cancel(c);
+    pf_platform_ops()->sleep_ms(200u);
+    TT_ASSERT_INT((int)FW_APP_STATE_RUNNING, (int)fw_app_state(c));
+    TT_ASSERT_INT(1, fw_app_is_stalled(&c->pub, 100u));
+
+    /* 测试自己把它放掉，免得固件带着一个转圈的任务过日子；这一下不是"取消"
+     * 生效，而是任务从 `task()` 返回后走 FAILED 路径。 */
+    __atomic_store_n(&g_spin, 0, __ATOMIC_RELEASE);
+    TT_ASSERT_INT((int)FW_APP_STATE_FAILED, wait_terminal(c, 1000u));
+    TT_ASSERT_INT(1, obs_get(&g_exit_calls));
+    reset_all();
+}
+
 /* 固件里只允许有一个 `main`（本工程是 ESP-IDF 的 `app_main` 入口，`main` 这个
  * 符号留给套件）。两个套件都要各自的入口名，所以按"是不是在 IDF 里"选择：
  * 设备侧叫 `app_behavior_main`，host 侧仍是 `main`。 */
@@ -225,5 +301,6 @@ int main(void)
     TT_RUN(cancel_stops_the_task_and_calls_exit_exactly_once);
     TT_RUN(long_delay_is_cut_into_slices);
     TT_RUN(init_failure_becomes_failed_and_exits_once);
+    TT_RUN(busy_loop_is_detected_but_cancel_does_not_stop_it);
     return tt_summary();
 }

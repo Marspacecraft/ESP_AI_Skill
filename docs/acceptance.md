@@ -9,7 +9,7 @@
 
 | # | 验收线 | 命令 | 现在的结果 | 类型 |
 |---|---|---|---|---|
-| A1 | **App 的编译单元里不存在平台表**：App 能 link 的每个头，其依赖闭包都落在 App 自己的 `link` 集合内 | `python3 tools/check_link.py` | PASS（5 个 tag / 18 个对外头） | host |
+| A1 | **App 的编译单元里不存在平台表**：App 能 link 的每个头，其依赖闭包都落在 App 自己的 `link` 集合内 | `python3 tools/check_link.py` | PASS（5 个 tag / 20 个对外头） | host |
 | A2 | **整机只有一个入口**：全仓除 `framework/src/fw_main.c` 外没有第二处 `app_main` | `tests/tools/check_entry_unique.sh` | PASS | host |
 | A3 | **清单即授权**：没写进清单的 App 编译好了也不会启动；重复 id 整机不启动 | `./build.sh run`（`test_fw_registry` / `test_demo_lifecycle`） | 179 条全绿 | host |
 | A4 | **停止是可完成的**：取消位在片边界被响应（切片 ≤20ms），`exit()` 恰好一次，`fw_delay_block()` 之后的代码不执行 | `./build.sh run`（`test_fw_delay` 7 条）+ 真机 `test_app_behavior` | 全绿；真机 `cancel_stops_the_task_and_calls_exit_exactly_once` / `long_delay_is_cut_into_slices` PASS | host + 真机 |
@@ -17,6 +17,7 @@
 | A6 | **越权在合并前就红**：以某个 tag 的身份写别人的路径必须被拒 | `python3 tools/check_workspace_policy.py --as 2 framework/src/fw_app.c`（期望 `DENY`、退出码 1） | 可执行 | host |
 | A7 | **未验证无法伪装成已验证**：交付必须带四行状态，`Device tests:` 不许在没烧录时写 PASS | 人审 | 无机器判定 | 人审 |
 | A8 | **换一块板不改框架**：新增 `platform/<板>/` 只动该目录 + 一处 `pf_platform_ops()` | 人审 + `真机` | 两块板各走通一次：`platform/ai-passport-c3/`（产品固件内嵌）与 `platform/esp32s3-devkit/`（全程未改 `framework/`） | 人审/真机 |
+| A9 | **排版不靠人记**：仓库里每个 `.c`/`.h` 都与根目录的 `.clang-format` 一致 | `python3 tools/check_format.py` | PASS（73 个文件） | host |
 
 ## 三处已知的"还不能自动化"
 
@@ -34,4 +35,4 @@
 
 - 改完任何一处，先跑 `./build.sh run`：它已经把 A2、A1 接在测试之后（`check_entry_unique` → `check_link`），
   再接 `host` 用例。红一项就整轮红。
-- 交报告时按 A1–A8 逐条写"验了 / 没验 / 为什么"，比写"测试通过"有用得多。
+- 交报告时按 A1–A9 逐条写"验了 / 没验 / 为什么"，比写"测试通过"有用得多。

@@ -78,7 +78,7 @@ python3 tools/check_workspace_policy.py --as 3 apps/demo/app_demo.c
 ## 5. 改完必须跑的三件事
 
 ```bash
-./build.sh run                                          # 179 条 + 五道门禁
+./build.sh run                                          # 179 条 + 六道门禁
 CC="cc -fsanitize=thread -g" ./build.sh run             # 竞争（含纯死循环样本时会慢一个量级，实测 ~70s）
 CC="cc -fsanitize=address -fno-omit-frame-pointer -g" ./build.sh run
 ```

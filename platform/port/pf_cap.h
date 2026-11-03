@@ -28,6 +28,11 @@
  *      在 boot 阶段调用一次/每位**，不允许 App 调用。App 看见的是
  *      `api/af_api/cap.h`。
  *   3. 注册的指针必须**活到关机**：框架只存指针，不做拷贝，也不负责释放。
+ *   4. 每份 vtable 都带 `version`；**版本不符 = 这项能力不存在**。框架的判定是
+ *      "拿到的表与我知道的版本不一致，就不要它"，对 App 表现为
+ *      `CM_ERR_NOT_SUPPORTED`，而不是 `CM_ERR_UNAVAILABLE`——后者留给"能力在、
+ *      但这一次调用失败了"。换布局就必须同时改 `PF_<CAP>_OPS_VERSION` 与所有
+ *      平台实现；串口是 `PF_UART_OPS_VERSION`。
  */
 #ifndef ESP_AI_SKILL_PF_CAP_H
 #define ESP_AI_SKILL_PF_CAP_H

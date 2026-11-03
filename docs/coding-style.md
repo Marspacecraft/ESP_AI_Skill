@@ -223,7 +223,9 @@ static bool port_open(uint32_t port)
 - 指针 `*` 贴变量名：`const char *name`。
 - 一元运算符贴操作数；二元运算符两侧空格；`,` 后空格。
 - 不留行尾空白；文件以单个换行结尾。
-- **排版不靠记**：仓库根有 [`.clang-format`](../.clang-format)，它编码的就是本节。
+- **排版不靠记**：仓库根有 [`.clang-format`](../.clang-format)，它编码的就是本节；
+  `./build.sh run` 里的**格式门禁**（`tools/check_format.py`）会把"与样式文件不一致"
+  变成红灯，所以本节不需要背——写错了门禁会说哪个文件。
 
 ```bash
 xcrun clang-format -i <file>...            # macOS 自带（Xcode 工具链）
@@ -422,7 +424,7 @@ static uint32_t g_slot_lock;  /* 护 s_live[]：0 空闲 / 1 占用，只用 CM_
 
 | # | 内容 | 结论 |
 |---|---|---|
-| 7 | [`.clang-format`](../.clang-format)（仓库根）+ 全仓格式化 | **已做**，2026-11-03 单独一次提交：`git ls-files '*.c' '*.h'` 共 45 个文件被重排（553 增 / 436 删），`./build.sh run` 仍是 179 条 + 五道门禁 PASS |
+| 7 | [`.clang-format`](../.clang-format)（仓库根）+ 全仓格式化 | **已做**，2026-11-03 单独一次提交：`git ls-files '*.c' '*.h'` 共 45 个文件被重排（553 增 / 436 删），`./build.sh run` 仍是 179 条 + 六道门禁 PASS，且排版自此由 `check_format.py` 持续盯着 |
 
 顺带记两条当时的判断（写给未来的自己）：
 

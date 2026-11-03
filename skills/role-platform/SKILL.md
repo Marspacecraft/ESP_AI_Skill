@@ -111,7 +111,7 @@ python3 tools/check_workspace_policy.py --as 4 framework/src/fw_ctx.c
 ## 6. 交付前自查
 
 ```bash
-./build.sh run                                          # host 179 + 五道门禁，必须 rc=0
+./build.sh run                                          # host 179 + 六道门禁，必须 rc=0
 ./build/test_pf_conformance                             # 或者点名跑这一份（先重编）
 ```
 

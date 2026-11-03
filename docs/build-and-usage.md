@@ -92,7 +92,7 @@ platform/   平台适配：九项基础设施 + 能力位
 
 ```bash
 ./build.sh          # 只编译：22 个用例二进制，编不过就退出 1
-./build.sh run      # 编译 + 逐个执行 + 五道静态门禁
+./build.sh run      # 编译 + 逐个执行 + 六道静态门禁
 ```
 
 输出形态：
@@ -122,7 +122,7 @@ link 面: PASS（5 个 tag，16 个对外头，闭包逐条包含关系成立）
 3. **双重判定**：运行阶段，**退出码非 0 或输出里有以 `FAIL ` 开头的行**都算红。
    为什么双重——某个 `main` 忘了 `return tt_summary()` 时退出码永远是 0，只看退出码会漏。
 4. **空集不是失败**：没有任何用例时打印 `no tests` 并返回 0。但 `no tests` **不许被说成"通过"**。
-5. **五道门禁是 `run` 模式的一部分**，顺序固定：入口唯一 → link 面 → 纯 C 边界 → 能力目录 → 服务号。
+5. **六道门禁是 `run` 模式的一部分**，顺序固定：入口唯一 → link 面 → 纯 C 边界 → 能力目录 → 服务号 → 格式。
    任何一道红，整轮 rc=1。
 
 ### 3.3 编译标志（每一条都有原因）
@@ -153,12 +153,12 @@ CC="cc -fsanitize=thread -g" ./build.sh run
 | `BUILD FAIL xxx` | `build/xxx.log` 的前 20 行（终端只打这些） |
 | 某条 `FAIL` 行 | 行尾的 `| 文件:行号` 就是断言位置 |
 | `FAIL ... -- 超时（60s）没有返回` | 用例里某个等待没有上限，或真的死锁 |
-| 五道门禁某一红 | 它自己会把"哪条规则、哪个路径、为什么"打出来 |
+| 六道门禁某一红 | 它自己会把"哪条规则、哪个路径、为什么"打出来 |
 | 退出码 2 | **环境或用法问题**，不是代码问题；先看是不是缺 `clang` |
 
 ---
 
-## 4. 五道门禁判什么
+## 4. 六道门禁判什么
 
 | 门禁 | 命令 | 判据 | 典型红证（故意注入） |
 |---|---|---|---|
@@ -167,6 +167,7 @@ CC="cc -fsanitize=thread -g" ./build.sh run
 | 纯 C 边界 | `python3 tools/check_purity.py` | `common/ api/ framework/ apps/` 里不许出现 SDK 头与 RTOS 符号 | 在 `apps/demo/app_demo.c` 加 `#include "esp_log.h"` → `禁止的头 'esp_log.h'（命中 'esp_'）` |
 | 能力目录 | `python3 tools/check_caps.py` | `pf_ops.h` 的 `PF_CAP_*` ↔ `docs/generated/catalog.md` 双向一致（位号、宏、接口头三处） | 目录里给 `PF_CAP_DISPLAY` 填一个不存在的 `api/af_api/disp.h` → `FAIL（1 处不一致）` |
 | 服务号 | `python3 tools/check_svc_ids.py` | `api/af_api/*.h` 的 `*_SVC_ID` ↔ `docs/generated/svc-ids.md` 双向一致，且**同一个号不许被两个服务占用** | 让两个头都写 `#define X_SVC_ID 5u` → `FAIL（1 处不一致）：服务号 5 被两个宏占用` |
+| 格式 | `python3 tools/check_format.py` | 每个 `.c`/`.h` 与仓库根的 `.clang-format` 一致（`clang-format --dry-run --Werror`）；本机找不到 clang-format 时打 SKIP，CI 装了所以 CI 上必查 | 把一行缩进改多两格 → `格式: FAIL（1/73 个文件与 .clang-format 不一致）` |
 
 每个检查器都有 `--selftest`，且**至少三条负向用例**——不能红的检查器等于没有检查器：
 
@@ -176,6 +177,7 @@ python3 tools/check_link.py --selftest               # link_selftest
 python3 tools/check_purity.py --selftest             # purity_selftest
 python3 tools/check_caps.py --selftest               # caps_selftest
 python3 tools/check_svc_ids.py --selftest            # svc_ids_selftest
+python3 tools/check_format.py --selftest             # check_format_selftest（2 条）
 ```
 
 **要证明一个门禁真的有效**，标准动作是：注入一处违规 → 确认它变红 → 还原 → 确认
@@ -375,7 +377,9 @@ void pf_platform_boot(void) { (void)fw_cap_register(PF_CAP_UART, &s_uart_ops); }
 - 没注册的位：`cap_available()` 回答 false，相关调用返回 `CM_ERR_NOT_SUPPORTED`；
 - `cap_available()` 是"硬件报了 **且** 软件注册了"——只有其一都算不可调（D57）；
 - **不需要弱符号、不需要空实现、不需要 `#if`**：板子没有这个能力，就一个符号都不用提供；
-- 注册的指针**活到关机**（框架只存指针，不拷贝、不释放）；重复注册返回 -1。
+- 注册的指针**活到关机**（框架只存指针，不拷贝、不释放）；重复注册返回 -1；
+- vtable 的 `version` 不符 = **这项能力当作不存在**（App 看到 `CM_ERR_NOT_SUPPORTED`）；
+  `CM_ERR_UNAVAILABLE` 留给"能力在、但这一次调用失败"。这条约定写在 `pf_cap.h` 规则 4。
 
 **加一项能力要动四处（D58，串口是先例）：**
 
@@ -498,7 +502,7 @@ Unverified:   还有什么没验证、为什么
 | AI 协作者的最短入口 | [`../AGENTS.md`](../AGENTS.md) |
 | 九项端口为什么只有九项、逐条裁决 | [`pf-ops-decision.md`](pf-ops-decision.md) |
 | 每个错误码谁产出、调用方该做什么 | [`error-codes.md`](error-codes.md) |
-| A1–A8 验收线怎么算过 | [`acceptance.md`](acceptance.md) |
+| A1–A9 验收线怎么算过 | [`acceptance.md`](acceptance.md) |
 | 能力位 ↔ 接口头的映射 | [`generated/catalog.md`](generated/catalog.md) |
 | 产品仓库怎么把本仓库当组件引进去 | [`cross-repo.md`](cross-repo.md) |
 | 决策与施工记录（D1–D59） | [`../实施步骤.md`](../实施步骤.md) |
@@ -510,11 +514,11 @@ Unverified:   还有什么没验证、为什么
 | 项 | 数字 |
 |---|---|
 | host 用例 | **179 条**，24 个二进制，`./build.sh run` rc=0 |
-| 门禁 | 4 道全 PASS（入口唯一 / link 面 5 tag·14 头 / 纯 C 边界 4 目录 / 能力目录 9 位） |
+| 门禁 | **6 道**全 PASS（入口唯一 / link 面 5 tag·**20** 头 / 纯 C 边界 4 目录 / 能力目录 **10** 位 / 服务号 0 个 / 格式 73 个文件） |
 | 真机 | ESP32-C3 与 ESP32-S3 各 **41 条**（14 端口 + 13 行为 + 6 事件 + 8 资源），`DEVICE_DONE rc=0` |
 | sanitizer | ASan 0 报告、TSan 0 报告 |
 | 端口 | `platform/port/pf_ops.h` 九项 + `caps()` + `version` |
-| App 门面 | `api/af_api/{app,res,evt,svc}.h`（**没有**显示/输入/音频/存储/网络/电源的能力头） |
+| App 门面 | `api/af_api/{app,res,evt,svc,cap,uart}.h` + 控制面 `mgr.h`（**只有串口一项能力**；显示/输入/音频/存储/网络/电源仍没有头） |
 
 确认没坏的最短方式：
 

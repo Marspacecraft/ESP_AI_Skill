@@ -21,9 +21,14 @@ jobs:
 
       # check_link.py 优先用 clang -M 取依赖闭包；ubuntu 镜像自带 cc 但没有 clang，
       # 缺了会回退到 cc（也能跑），这里显式装上，保证两台机器的判定逻辑一致。
-      - name: Install clang (linux)
+      # 排版门禁（check_format.py）也要 clang-format：`apt` 里是独立包，`brew` 里也是。
+      - name: Install clang + clang-format (linux)
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y clang
+        run: sudo apt-get update && sudo apt-get install -y clang clang-format
+
+      - name: Install clang-format (macOS)
+        if: runner.os == 'macOS'
+        run: command -v clang-format || brew install clang-format
 
       - name: Show toolchain
         run: |
@@ -59,6 +64,7 @@ jobs:
             gcc
             make
             python
+            clang
 
       # `build.sh` 用 `cc`，`check_link.py` 也找 `cc`；MSYS 的 gcc 包只装 `gcc`，
       # 这里补一个软链，免得三个脚本各自退回不同的编译器。
@@ -67,6 +73,8 @@ jobs:
           command -v cc || ln -sf "$(command -v gcc)" /usr/bin/cc
           cc --version | head -1
           python3 --version
+          # 排版门禁在 MSYS 上若拿不到 clang-format 会打 SKIP（见 check_format.py 的头注释）。
+          command -v clang-format && clang-format --version || echo "clang-format 不可用（格式门禁会 SKIP）"
 
       - name: Build + gates + host tests
         run: ./build.sh run

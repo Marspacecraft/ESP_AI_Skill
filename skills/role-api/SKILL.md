@@ -134,7 +134,7 @@ python3 tools/check_workspace_policy.py --as 5 framework/src/fw_ctx.c
 ## 6. 交付前自查
 
 ```bash
-./build.sh run            # 五道门禁：entry_unique → link → purity → caps → svc-ids，全绿
+./build.sh run            # 六道门禁：entry_unique → link → purity → caps → svc-ids → format，全绿
 ```
 
 - 四行交付里 `Unverified` 要写清"契约有没有被真实调用方验过"——只有测试在调，就没有。

@@ -26,7 +26,7 @@
 |---|---|---|
 | **伪阻塞** | 所有等待都走框架，取消位命中就 `fw_run_exit()` **不返回**；清理只能写在 `exit()` 里，框架保证它恰好调一次 | "记得在阻塞点之后别写清理" |
 | **编译期隔离** | 依赖闭包门禁：App 的公开头闭包必须落在它自己的 `link` 集合里，越界报错指向撑破闭包的那个头 | "评审时留意分层" |
-| **机器判定** | 四行交付（Build / Host / Device / Unverified）+ 五道门禁；`SKIP` 不算通过，退出码 `2` 不算通过 | "AI 说它测过了" |
+| **机器判定** | 四行交付（Build / Host / Device / Unverified）+ 六道门禁；`SKIP` 不算通过，退出码 `2` 不算通过 | "AI 说它测过了" |
 
 一句话：**接口在头文件里，判定在门禁里，证据在四行状态里。三者缺一，就等于没做。**
 
@@ -88,7 +88,7 @@ common/        类型、错误码、原子宏——最底层，不认上面任�
 ## 30 秒跑起来
 
 ```bash
-./build.sh run      # 编译全部用例 + 跑五道门禁 + 跑 host 测试（唯一构建入口）
+./build.sh run      # 编译全部用例 + 跑六道门禁 + 跑 host 测试（唯一构建入口）
 ```
 
 一个用例一个二进制，输出固定四种行：`PASS` / `FAIL` / `SKIP` / `SUMMARY`。
@@ -153,7 +153,7 @@ const app_desc_t app_demo_desc = {
 | 命令怎么用、门禁怎么判、接板流程、失败速查 | [`docs/build-and-usage.md`](docs/build-and-usage.md) |
 | 九项为什么这么定（逐项语义与理由） | [`docs/pf-ops-decision.md`](docs/pf-ops-decision.md) |
 | 错误码谁产出、哪个码该查什么 | [`docs/error-codes.md`](docs/error-codes.md) |
-| 验收线 A1–A8（哪些能自动、哪些要人审） | [`docs/acceptance.md`](docs/acceptance.md) |
+| 验收线 A1–A9（哪些能自动、哪些要人审） | [`docs/acceptance.md`](docs/acceptance.md) |
 | 能力位 ↔ 接口头 | [`docs/generated/catalog.md`](docs/generated/catalog.md) |
 | 产品仓库怎么把本仓库引进去 | [`docs/cross-repo.md`](docs/cross-repo.md) |
 | 决策与施工记录（D1–D59） | [`实施步骤.md`](实施步骤.md) |
@@ -170,7 +170,7 @@ python3 tools/check_workspace_policy.py --as 2 apps/demo/app_demo.c   # ALLOW/DE
 
 > 数字的唯一出处是 [`AGENTS.md`](AGENTS.md) §1；这里是写这份介绍时的快照，漂了以那边为准。
 
-- host 用例 **179 条**全绿；五道门禁 PASS（入口唯一 / link 闭包 / 纯 C 边界 / 能力目录 / 服务号）
+- host 用例 **179 条**全绿；六道门禁 PASS（入口唯一 / link 闭包 / 纯 C 边界 / 能力目录 / 服务号 / 格式）
 - 真机：ESP32-C3（ai-passport）与 ESP32-S3 devkit 各 **41 条**，`DEVICE_DONE rc=0`
 - ASan、TSan 全量 0 报告
 

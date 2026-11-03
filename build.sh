@@ -136,4 +136,13 @@ if [ -f tools/check_svc_ids.py ]; then
     fi
 fi
 
+#   check_format.py —— 排版与 .clang-format 一致（没有门禁时，手写缩进和全仓格式化
+#   都会悄悄漂；有了它，"与样式文件不一致"是一次红灯而不是一条评审意见）。
+#   本机找不到 clang-format 时它打印 SKIP 并返回 0；CI 会先装好，所以 CI 上一定查。
+if [ -f tools/check_format.py ]; then
+    if ! python3 tools/check_format.py; then
+        rc=1
+    fi
+fi
+
 exit "$rc"

@@ -25,12 +25,14 @@ role 2  aiapp      apps/demo/              apps/app_manifest.c    apps/app_manif
 role 3  framework  framework/              tests/framework/       docs/framework/
 role 4  platform   platform/host-fake/     platform/metalio_eink_4_plus/   tests/platform/
                    platform/ai-passport-c3/  docs/platform/ framework/include/
-role 5  api        api/                    common/                tools/
+role 5  api        api/                    common/
                    tests/support/          tests/tinytest.h       platform/port/
                    docs/
 
 # 两类人写的文件：AI 一律不写（发现不对 → 报告，不要自己改）
-nobody policy.txt  实施步骤.md  build.sh
+# `tools/` 是**考卷本身**：门禁脚本如果由被测者修改，"约束"就只剩自觉。
+# 门禁有 bug 属于契约变更，走评审，不走"顺手改一下"。
+nobody policy.txt  实施步骤.md  build.sh  tools/
 
 # ── link（可链接集合）──────────────────────────────────────────
 # App 与框架：common/ 是所有人的公共库；api/af_api/ 是 App 的门面；

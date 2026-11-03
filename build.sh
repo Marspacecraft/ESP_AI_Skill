@@ -105,5 +105,12 @@ if [ -x tests/tools/check_entry_unique.sh ]; then
         rc=1
     fi
 fi
+#   check_link.py —— 公开头的依赖闭包必须落在读者自己的 link 集合里。
+#   它判的是"App 的编译单元里有没有平台表"，这是 write 面管不到的事。
+if [ -f tools/check_link.py ]; then
+    if ! python3 tools/check_link.py; then
+        rc=1
+    fi
+fi
 
 exit "$rc"

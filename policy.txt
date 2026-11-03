@@ -23,9 +23,9 @@ role 1  sysapp     apps/system/            tests/sys/             docs/sys/
 role 2  aiapp      apps/demo/              apps/app_manifest.c    apps/app_manifest.h
                    tests/app/              docs/app/
 role 3  framework  framework/              tests/framework/       docs/framework/
-role 4  platform   platform/host-fake/     platform/metalio_eink_4_plus/   tests/platform/
-                   platform/ai-passport-c3/  docs/platform/
-                   platform/esp32s3-devkit/ framework/include/
+role 4  platform   platform/host-fake/     platform/ai-passport-c3/  tests/platform/
+                   platform/esp32s3-devkit/  docs/platform/
+                   framework/include/
 role 5  api        api/                    common/
                    tests/support/          tests/tinytest.h       platform/port/
                    docs/

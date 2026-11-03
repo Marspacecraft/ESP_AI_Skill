@@ -11,14 +11,14 @@
 | 码 | 值 | 谁产出 | 什么情况下 | 调用方该做什么 |
 |---|---|---|---|---|
 | `CM_OK` | 0 | 全部 | 成功 | 继续 |
-| `CM_ERR_INVALID` | 1 | `fw_ops_check` / `fw_registry` / `fw_res` / `fw_event` / `fw_submit` / `fw_quota` / `fw_app_ctx_new_with_id` | 参数非法（NULL、长度越界、槽位不属于本实例、`bytes==0`）、清单条目缺字段、`flags` 含未知位 | 改调用，不要重试 |
+| `CM_ERR_INVALID` | 1 | `fw_ops_check` / `fw_registry` / `fw_res` / `fw_event` / `fw_submit` / `fw_quota` / `fw_app_ctx_new_with_id` / `fw_embed` | 参数非法（NULL、长度越界、槽位不属于本实例、`bytes==0`）、清单条目缺字段、`flags` 含未知位 | 改调用，不要重试 |
 | `CM_ERR_NOMEM` | 2 | `fw_quota`（`alloc_impl`）/ `fw_alloc_id` / `fw_registry`（容量满） | 整机内存给了但没拿到；发号器 253 个用尽 | 省着用、释放后再试；不是"你用超了" |
 | `CM_ERR_NOT_SUPPORTED` | 3 | `fw_svc_ready` / `fw_svc_owner` / `fw_event_*` / `fw_svc_submit_take` | 服务没注册（这块板没有）、事件主题没声明、提交队列已空 | **不重试**；这是合法状态，不是故障 |
 | `CM_ERR_UNAVAILABLE` | 4 | `fw_svc_ready` / `fw_svc_owner` | 服务注册过但持有者已死（STOPPING/STOPPED/FAILED） | 可重试（等它被重启或认领） |
 | `CM_ERR_VERSION` | 5 | `fw_ops_check` | `pf_ops_t.version` 与 `PF_OPS_VERSION` 不符 | 启动期拒；**不要试图兼容**，重编平台 |
 | `CM_ERR_TIMEOUT` | 6 | `fw_event_take` / `fw_event_wait` | 带超时的等待到点仍未拿到；`take` 时队列为空 | 正常路径，不是错误；继续干活 |
 | `CM_ERR_BUSY` | 7 | `fw_res`（槽位已占）/ `fw_event`（队列满、重复 declare）/ `fw_submit`（try-lock 失败）/ `fw_svc_register`（被别人占） | 同名资源正被占用；语义是"现在不行"，不是"永远不行" | 稍后再试；不要去抢 |
-| `CM_ERR_STATE` | 8 | `fw_registry`（未绑表、重复 init）/ `fw_boot`（未 init、二次 boot）/ `fw_res`（不在 App 任务里） | 当前状态机不允许这个动作 | 检查调用顺序，改代码；重试无用 |
+| `CM_ERR_STATE` | 8 | `fw_registry`（未绑表、重复 init）/ `fw_boot`（未 init、二次 boot）/ `fw_res`（不在 App 任务里）/ `fw_embed`（二次嵌入、平台无表） | 当前状态机不允许这个动作 | 检查调用顺序，改代码；重试无用 |
 | `CM_ERR_CANCELED` | 9 | **目前无产出点（预留）** | 保留号码：将来若出现"被停止时还要早退"的场景再给它产出者 | **不要拿它做分支**；清理写在 `exit()` 里 |
 | `CM_ERR_QUOTA` | 10 | `fw_quota`（`alloc_impl`）/ `fw_res`（`res_acquire` 透传） | 本 App 的配额用超了 | 查自己有没有漏释放；别怪整机 |
 

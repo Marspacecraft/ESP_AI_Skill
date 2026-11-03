@@ -107,13 +107,22 @@ static struct fw_app_ctx *start(int scenario)
     return fw_live_at(0u);
 }
 
+/* 取消之后必须等到**终态**（STOPPED/FAILED），不能停在 STOPPING：
+ * 退出五步里 ①②③ 还在跑，此时读 `slots[]` 与 `fw_app_slots_released()` 会读到
+ * "回收了一半"的中间态。这条在 host 上偶发过：`期望 4（STOPPED），实际 3（STOPPING）`。 */
 static void stop_it(struct fw_app_ctx *c)
 {
+    fw_app_state_e st;
+
     if (c == NULL) {
         return;
     }
     fw_app_request_cancel(c);
-    for (int i = 0; i < 400 && fw_app_state(c) == FW_APP_STATE_RUNNING; i++) {
+    for (int i = 0; i < 400; i++) {
+        st = fw_app_state(c);
+        if (st == FW_APP_STATE_STOPPED || st == FW_APP_STATE_FAILED) {
+            return;
+        }
         pf_platform_ops()->sleep_ms(5u);
     }
 }

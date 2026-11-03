@@ -40,11 +40,11 @@ int fw_quota_reserve(struct fw_app_ctx *c, size_t bytes)
     if (c == NULL) {
         return 1; /* 不在 App 里分配（框架内部）：不计账，也不受配额限制 */
     }
-    quota = __atomic_load_n(&c->quota_bytes, __ATOMIC_RELAXED);
-    now = __atomic_add_fetch(&c->used_bytes, bytes, __ATOMIC_RELAXED);
+    quota = CM_ATOMIC_LOAD(&c->quota_bytes, CM_MEM_RELAXED);
+    now = CM_ATOMIC_ADD_FETCH(&c->used_bytes, bytes, CM_MEM_RELAXED);
     if (quota != 0u && now > quota) {
-        (void)__atomic_sub_fetch(&c->used_bytes, bytes, __ATOMIC_RELAXED);
-        (void)__atomic_add_fetch(&c->denied_count, 1u, __ATOMIC_RELAXED);
+        (void)CM_ATOMIC_SUB_FETCH(&c->used_bytes, bytes, CM_MEM_RELAXED);
+        (void)CM_ATOMIC_ADD_FETCH(&c->denied_count, 1u, CM_MEM_RELAXED);
         return 0;
     }
     return 1;
@@ -55,7 +55,7 @@ void fw_quota_release(struct fw_app_ctx *c, size_t bytes)
     if (c == NULL) {
         return;
     }
-    (void)__atomic_sub_fetch(&c->used_bytes, bytes, __ATOMIC_RELAXED);
+    (void)CM_ATOMIC_SUB_FETCH(&c->used_bytes, bytes, CM_MEM_RELAXED);
 }
 
 static void *alloc_impl(struct fw_app_ctx *c, size_t bytes, cm_err_t *out)
@@ -130,7 +130,7 @@ cm_err_t fw_res_set_quota(struct app_ctx *ctx, size_t bytes)
     if (ctx == NULL || c == NULL) {
         return CM_ERR_INVALID;
     }
-    __atomic_store_n(&c->quota_bytes, bytes, __ATOMIC_RELEASE);
+    CM_ATOMIC_STORE(&c->quota_bytes, bytes, CM_MEM_RELEASE);
     return CM_OK;
 }
 
@@ -142,11 +142,11 @@ cm_err_t fw_res_revoke(struct app_ctx *ctx)
     if (ctx == NULL || c == NULL) {
         return CM_ERR_INVALID;
     }
-    used = __atomic_load_n(&c->used_bytes, __ATOMIC_RELAXED);
+    used = CM_ATOMIC_LOAD(&c->used_bytes, CM_MEM_RELAXED);
     if (used == 0u) {
         used = 1u; /* 压到 0 会变成"不限"，那是反的 */
     }
-    __atomic_store_n(&c->quota_bytes, used, __ATOMIC_RELEASE);
+    CM_ATOMIC_STORE(&c->quota_bytes, used, CM_MEM_RELEASE);
     return CM_OK;
 }
 
@@ -156,12 +156,12 @@ void fw_res_usage(const struct app_ctx *ctx, size_t *used_bytes, size_t *quota_b
     const struct fw_app_ctx *c = (ctx == NULL) ? NULL : (const struct fw_app_ctx *)ctx->fw;
 
     if (used_bytes != NULL) {
-        *used_bytes = (c == NULL) ? 0u : __atomic_load_n(&c->used_bytes, __ATOMIC_RELAXED);
+        *used_bytes = (c == NULL) ? 0u : CM_ATOMIC_LOAD(&c->used_bytes, CM_MEM_RELAXED);
     }
     if (quota_bytes != NULL) {
-        *quota_bytes = (c == NULL) ? 0u : __atomic_load_n(&c->quota_bytes, __ATOMIC_RELAXED);
+        *quota_bytes = (c == NULL) ? 0u : CM_ATOMIC_LOAD(&c->quota_bytes, CM_MEM_RELAXED);
     }
     if (denied_count != NULL) {
-        *denied_count = (c == NULL) ? 0u : __atomic_load_n(&c->denied_count, __ATOMIC_RELAXED);
+        *denied_count = (c == NULL) ? 0u : CM_ATOMIC_LOAD(&c->denied_count, CM_MEM_RELAXED);
     }
 }

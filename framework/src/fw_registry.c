@@ -38,7 +38,7 @@ const pf_ops_t *fw_ops(void)
      * 在它最后一片 `fw_delay_block()` 里（状态已经是终态、任务还没退出）。
      * 读到 NULL 时调用方会提前返回，所以语义不变；不原子则是一个真实的数据竞争
      * （指针的 8 字节读写没有保证）。 */
-    return __atomic_load_n(&s_ops, __ATOMIC_ACQUIRE);
+    return CM_ATOMIC_LOAD(&s_ops, CM_MEM_ACQUIRE);
 }
 
 cm_err_t fw_platform_bind(const pf_ops_t *ops)
@@ -52,7 +52,7 @@ cm_err_t fw_platform_bind(const pf_ops_t *ops)
     if (rc != CM_OK) {
         return rc; /* 校验失败：s_ops 保持 NULL，不留半绑定 */
     }
-    __atomic_store_n(&s_ops, ops, __ATOMIC_RELEASE);
+    CM_ATOMIC_STORE(&s_ops, ops, CM_MEM_RELEASE);
     s_bound = 1;
     return CM_OK;
 }
@@ -205,7 +205,7 @@ void fw_reset(void)
     }
     s_count = 0u;
     s_used_count = 0u;
-    __atomic_store_n(&s_ops, (const pf_ops_t *)NULL, __ATOMIC_RELEASE);
+    CM_ATOMIC_STORE(&s_ops, (const pf_ops_t *)NULL, CM_MEM_RELEASE);
     s_bound = 0;
     s_initialized = 0;
     fw_svc_forget();

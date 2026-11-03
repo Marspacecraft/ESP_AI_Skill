@@ -30,14 +30,14 @@ static void fw_app_entry(void *arg)
 
     t_current = c;
 
-    fw_atomic_store_u32(&c->state, (uint32_t)FW_APP_STATE_INIT);
+    CM_ATOMIC_STORE(&c->state, (uint32_t)FW_APP_STATE_INIT, CM_MEM_RELEASE);
     if (c->desc->init(&c->pub) != CM_OK) {
         fw_run_exit(c, FW_APP_STATE_FAILED);
     }
 
     /* 心跳基准：从来没喂过心跳的 App（纯死循环）也要能算出"多久没动了"。 */
-    __atomic_store_n(&c->hb_base_ms, fw_ops()->clock_ms(), __ATOMIC_RELAXED);
-    fw_atomic_store_u32(&c->state, (uint32_t)FW_APP_STATE_RUNNING);
+    CM_ATOMIC_STORE(&c->hb_base_ms, fw_ops()->clock_ms(), CM_MEM_RELAXED);
+    CM_ATOMIC_STORE(&c->state, (uint32_t)FW_APP_STATE_RUNNING, CM_MEM_RELEASE);
     c->desc->task(&c->pub);
 
     /* 走到这里说明 task() 返回了。按契约，主任务是不该返回的——
@@ -73,7 +73,7 @@ struct fw_app_ctx *fw_app_ctx_new_with_id(const app_desc_t *desc, uint32_t id)
     c->desc = desc;
     c->pub.id = id;
     c->pub.fw = c;
-    fw_atomic_store_u32(&c->state, (uint32_t)FW_APP_STATE_EMPTY);
+    CM_ATOMIC_STORE(&c->state, (uint32_t)FW_APP_STATE_EMPTY, CM_MEM_RELEASE);
     return c;
 }
 
@@ -103,7 +103,7 @@ cm_err_t fw_app_start(struct fw_app_ctx *c)
     if (c == NULL || ops == NULL || ops->task_create == NULL) {
         return CM_ERR_STATE;
     }
-    if (fw_atomic_load_u32(&c->state) != (uint32_t)FW_APP_STATE_EMPTY) {
+    if (CM_ATOMIC_LOAD(&c->state, CM_MEM_ACQUIRE) != (uint32_t)FW_APP_STATE_EMPTY) {
         return CM_ERR_STATE;
     }
 
@@ -114,10 +114,10 @@ cm_err_t fw_app_start(struct fw_app_ctx *c)
 
     /* 先把状态推离 EMPTY：任务一建好就可能立刻跑起来，
      * 不这么做的话"同一上下文启动两次"的窗口是开着的。 */
-    fw_atomic_store_u32(&c->state, (uint32_t)FW_APP_STATE_INIT);
+    CM_ATOMIC_STORE(&c->state, (uint32_t)FW_APP_STATE_INIT, CM_MEM_RELEASE);
 
     if (ops->task_create(&td) == NULL) {
-        fw_atomic_store_u32(&c->state, (uint32_t)FW_APP_STATE_EMPTY);
+        CM_ATOMIC_STORE(&c->state, (uint32_t)FW_APP_STATE_EMPTY, CM_MEM_RELEASE);
         return CM_ERR_NOMEM;
     }
     return CM_OK;
@@ -128,18 +128,18 @@ fw_app_state_e fw_app_state(const struct fw_app_ctx *c)
     if (c == NULL) {
         return FW_APP_STATE_EMPTY;
     }
-    return (fw_app_state_e)fw_atomic_load_u32(&c->state);
+    return (fw_app_state_e)CM_ATOMIC_LOAD(&c->state, CM_MEM_ACQUIRE);
 }
 
 uint32_t fw_app_exit_calls(const struct fw_app_ctx *c)
 {
-    return (c == NULL) ? 0u : fw_atomic_load_u32(&c->exit_calls);
+    return (c == NULL) ? 0u : CM_ATOMIC_LOAD(&c->exit_calls, CM_MEM_ACQUIRE);
 }
 
 void fw_app_request_cancel(struct fw_app_ctx *c)
 {
     if (c != NULL) {
-        fw_atomic_store_u32(&c->cancel, 1u);
+        CM_ATOMIC_STORE(&c->cancel, 1u, CM_MEM_RELEASE);
     }
 }
 

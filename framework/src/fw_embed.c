@@ -23,14 +23,14 @@ cm_err_t fw_embed_start(const fw_manifest_t *man)
     if (man == NULL) {
         return CM_ERR_INVALID;
     }
-    if (__atomic_exchange_n(&s_embed_used, 1u, __ATOMIC_ACQ_REL) != 0u) {
+    if (CM_ATOMIC_EXCHANGE(&s_embed_used, 1u, CM_MEM_ACQ_REL) != 0u) {
         return CM_ERR_STATE;
     }
 
     ops = pf_platform_ops();
     if (ops == NULL) {
         /* 平台没提供表：这是平台违约，不是"清单写错了"。允许修好后重试。 */
-        __atomic_store_n(&s_embed_used, 0u, __ATOMIC_RELEASE);
+        CM_ATOMIC_STORE(&s_embed_used, 0u, CM_MEM_RELEASE);
         return CM_ERR_STATE;
     }
 
@@ -48,5 +48,5 @@ cm_err_t fw_embed_start(const fw_manifest_t *man)
 
 void fw_embed_forget(void)
 {
-    __atomic_store_n(&s_embed_used, 0u, __ATOMIC_RELEASE);
+    CM_ATOMIC_STORE(&s_embed_used, 0u, CM_MEM_RELEASE);
 }

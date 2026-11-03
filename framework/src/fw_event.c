@@ -55,7 +55,7 @@ cm_err_t fw_event_declare(evt_topic_t topic, size_t payload_bytes)
     t->head = 0u;
     t->tail = 0u;
     t->dropped = 0u;
-    __atomic_store_n(&t->payload, payload_bytes, __ATOMIC_RELEASE);
+    CM_ATOMIC_STORE(&t->payload, payload_bytes, CM_MEM_RELEASE);
     return CM_OK;
 }
 
@@ -71,19 +71,19 @@ static cm_err_t event_put(evt_topic_t topic, const void *data, size_t len)
     if (t == NULL) {
         return CM_ERR_NOT_SUPPORTED;
     }
-    if (data == NULL || len != __atomic_load_n(&t->payload, __ATOMIC_ACQUIRE)) {
+    if (data == NULL || len != CM_ATOMIC_LOAD(&t->payload, CM_MEM_ACQUIRE)) {
         return CM_ERR_INVALID;
     }
-    h = __atomic_load_n(&t->head, __ATOMIC_RELAXED);
-    tl = __atomic_load_n(&t->tail, __ATOMIC_ACQUIRE);
+    h = CM_ATOMIC_LOAD(&t->head, CM_MEM_RELAXED);
+    tl = CM_ATOMIC_LOAD(&t->tail, CM_MEM_ACQUIRE);
     if ((uint32_t)(h - tl) >= FW_EVENT_DEPTH) {
-        (void)__atomic_add_fetch(&t->dropped, 1u, __ATOMIC_RELAXED);
+        (void)CM_ATOMIC_ADD_FETCH(&t->dropped, 1u, CM_MEM_RELAXED);
         return CM_ERR_BUSY;
     }
     slot = &t->slots[h % FW_EVENT_DEPTH];
     memcpy(slot->buf, data, len);
-    __atomic_store_n(&slot->len, (uint32_t)len, __ATOMIC_RELAXED);
-    __atomic_store_n(&t->head, h + 1u, __ATOMIC_RELEASE);
+    CM_ATOMIC_STORE(&slot->len, (uint32_t)len, CM_MEM_RELAXED);
+    CM_ATOMIC_STORE(&t->head, h + 1u, CM_MEM_RELEASE);
     return CM_OK;
 }
 
@@ -104,7 +104,7 @@ cm_err_t fw_event_post_isr(evt_topic_t topic, const void *data)
         return CM_ERR_INVALID;
     }
     /* 长度由声明决定：中断里不校验，也不返回长度参数。 */
-    len = __atomic_load_n(&t->payload, __ATOMIC_ACQUIRE);
+    len = CM_ATOMIC_LOAD(&t->payload, CM_MEM_ACQUIRE);
     return event_put(topic, data, len);
 }
 
@@ -121,12 +121,12 @@ static cm_err_t event_get(evt_topic_t topic, void *buf, size_t cap, size_t *out_
     if (t == NULL) {
         return CM_ERR_NOT_SUPPORTED;
     }
-    payload = __atomic_load_n(&t->payload, __ATOMIC_ACQUIRE);
+    payload = CM_ATOMIC_LOAD(&t->payload, CM_MEM_ACQUIRE);
     if (buf == NULL || cap < payload) {
         return CM_ERR_INVALID;
     }
-    tl = __atomic_load_n(&t->tail, __ATOMIC_RELAXED);
-    h = __atomic_load_n(&t->head, __ATOMIC_ACQUIRE);
+    tl = CM_ATOMIC_LOAD(&t->tail, CM_MEM_RELAXED);
+    h = CM_ATOMIC_LOAD(&t->head, CM_MEM_ACQUIRE);
     /* `head - tail` 是这个环的**唯一不变量**：0 = 空，1..DEPTH-1 = 有货。
      *
      * 两个生产者同时写同一个 topic（D28 禁止的事）时，`head` 可能被后写的
@@ -147,7 +147,7 @@ static cm_err_t event_get(evt_topic_t topic, void *buf, size_t cap, size_t *out_
     if (out_len != NULL) {
         *out_len = payload;
     }
-    __atomic_store_n(&t->tail, tl + 1u, __ATOMIC_RELEASE);
+    CM_ATOMIC_STORE(&t->tail, tl + 1u, CM_MEM_RELEASE);
     return CM_OK;
 }
 
@@ -190,9 +190,9 @@ void fw_event_forget(void)
      * `fw_event_forget` 的普通写撞上 `event_put` 的原子写）。`fw_reset()` 的
      * 调用约定是"先停生产者再清表"，但检查器不该依赖调用方守规矩。 */
     for (uint32_t i = 0; i < FW_EVENT_TOPICS; i++) {
-        __atomic_store_n(&s_topics[i].head, 0u, __ATOMIC_RELEASE);
-        __atomic_store_n(&s_topics[i].tail, 0u, __ATOMIC_RELEASE);
-        __atomic_store_n(&s_topics[i].dropped, 0u, __ATOMIC_RELEASE);
-        __atomic_store_n(&s_topics[i].payload, (size_t)0, __ATOMIC_RELEASE);
+        CM_ATOMIC_STORE(&s_topics[i].head, 0u, CM_MEM_RELEASE);
+        CM_ATOMIC_STORE(&s_topics[i].tail, 0u, CM_MEM_RELEASE);
+        CM_ATOMIC_STORE(&s_topics[i].dropped, 0u, CM_MEM_RELEASE);
+        CM_ATOMIC_STORE(&s_topics[i].payload, (size_t)0, CM_MEM_RELEASE);
     }
 }

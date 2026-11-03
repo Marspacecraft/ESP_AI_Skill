@@ -14,6 +14,7 @@
 #ifndef ESP_AI_SKILL_FW_INTERNAL_H
 #define ESP_AI_SKILL_FW_INTERNAL_H
 
+#include "common/include/cm_atomic.h"
 #include "common/include/cm_types.h"
 #include "framework/include/fw_app.h"
 #include "platform/port/pf_ops.h"
@@ -305,8 +306,8 @@ typedef enum fw_app_state_e {
 /** 框架侧的 App 上下文。App 拿到的 `app_ctx_t*` 就是它的 `pub` 成员。
  *
  * `cancel` / `state` / `exit_calls` / `in_exit` 是**跨任务可见**的：任务自己写，
- * 别的任务（管理器、测试、退出路径）读。所以它们必须 volatile，且只能用
- * "写一个 32 位整数"的表达——没有锁，也不该有锁。
+ * 别的任务（管理器、测试、退出路径）读。所以它们只能用 `CM_ATOMIC_*` 访问——
+ * 不是 `volatile`（那不给原子性，TSan 一抓一个准），也没有锁，不该有锁。
  */
 struct fw_app_ctx {
     app_ctx_t pub;                  /* 必须是第一个成员：App 拿到的是 &pub */
@@ -347,37 +348,17 @@ void fw_quota_release(struct fw_app_ctx *c, size_t bytes);
 /** 这个实例在退出路径上回收了几个槽位。测试与诊断用。 */
 uint32_t fw_app_slots_released(const struct fw_app_ctx *c);
 
-/* 跨任务读写的四个字段**必须**经下面三个函数访问。
+/* 跨任务读写的字段**必须**经 `common/include/cm_atomic.h` 的宏访问
+ * （`CM_ATOMIC_LOAD` / `CM_ATOMIC_STORE` / `CM_ATOMIC_EXCHANGE` / ...）。
  *
- * 为什么不用 `volatile`：`volatile` 只挡编译器优化，不提供原子性，也不给
- * 线程模型任何"这件事发生在那件事之前"的承诺——C11 里它仍是数据竞争（UB）。
- * 在多核 ESP32 上，编译器把一次 `cancel=1` 重排到 `state=RUNNING` 之后是完全
- * 合法的，现场表现是"请求了停止但状态还在跑"。
+ * 为什么不用 `volatile`、为什么不用 `<stdatomic.h>`、每一档序该用在哪里——
+ * 全部写在那个头里，这里不复制（同一事实只有一处）。
  *
- * 为什么不用 `<stdatomic.h>`：与 `common/` 的选择一致——老工具链对 `_Atomic`
- * 支持不全，而 `__atomic_*` 是 GCC/Clang 共有的、32 位无需 libatomic 的路径。
- * 迁移到 `atomic_uint` 时不改语义，只改写法。
- *
- * 用哪一档序：
- *   - 取消位/状态用 ACQUIRE/RELEASE：写的一方"把话说出去"，读的一方必须看见
- *     写之前发生的事（否则读到 STOPPED 却读不到 exit 里写的日志/计数）。
- *   - 计数器用 RELAXED：只要求"整个数"，不要求同步别人。
+ * 本文件里只需要记住三条：
+ *   - 状态位/取消位：写 RELEASE、读 ACQUIRE（2.4 的七处竞争就是这么来的）；
+ *   - 计数器（`denied_count`/`hb_seq`/用量）：RELAXED；
+ *   - `exit_calls` 的"恰好一次"：EXCHANGE + ACQ_REL，看返回的旧值。
  */
-static inline uint32_t fw_atomic_load_u32(const uint32_t *p)
-{
-    return __atomic_load_n(p, __ATOMIC_ACQUIRE);
-}
-
-static inline void fw_atomic_store_u32(uint32_t *p, uint32_t v)
-{
-    __atomic_store_n(p, v, __ATOMIC_RELEASE);
-}
-
-/** 置 1 并返回**旧值**：`exit_calls` 的"恰好一次"靠它。 */
-static inline uint32_t fw_atomic_exchange_u32(uint32_t *p, uint32_t v)
-{
-    return __atomic_exchange_n(p, v, __ATOMIC_ACQ_REL);
-}
 
 /** 分配一个上下文并做静态初始化，id 取 `desc->id`（首次启动用这个）。
  *

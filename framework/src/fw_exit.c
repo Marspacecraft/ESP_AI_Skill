@@ -35,12 +35,12 @@ void fw_run_exit(struct fw_app_ctx *c, fw_app_state_e end_state)
     ops = fw_ops();
 
     /* ① 先清取消位。 */
-    fw_atomic_store_u32(&c->cancel, 0u);   /* 先清位：否则 exit() 里的阻塞再次命中取消位 */
-    fw_atomic_store_u32(&c->in_exit, 1u);  /* 清理期间取消无效 */
+    CM_ATOMIC_STORE(&c->cancel, 0u, CM_MEM_RELEASE);   /* 先清位：否则 exit() 里的阻塞再次命中取消位 */
+    CM_ATOMIC_STORE(&c->in_exit, 1u, CM_MEM_RELEASE);  /* 清理期间取消无效 */
 
     /* ② exit() 恰好一次。 */
-    if (fw_atomic_exchange_u32(&c->exit_calls, 1u) == 0u) {
-        fw_atomic_store_u32(&c->state, (uint32_t)FW_APP_STATE_STOPPING);
+    if (CM_ATOMIC_EXCHANGE(&c->exit_calls, 1u, CM_MEM_ACQ_REL) == 0u) {
+        CM_ATOMIC_STORE(&c->state, (uint32_t)FW_APP_STATE_STOPPING, CM_MEM_RELEASE);
         c->desc->exit(&c->pub);
     }
 
@@ -52,7 +52,7 @@ void fw_run_exit(struct fw_app_ctx *c, fw_app_state_e end_state)
     fw_res_release_all(c);
 
     /* ④ 终态。 */
-    fw_atomic_store_u32(&c->state, (uint32_t)end_state);
+    CM_ATOMIC_STORE(&c->state, (uint32_t)end_state, CM_MEM_RELEASE);
 
     /* ⑤ 结束当前任务，之后一行都不会执行。 */
     if (ops != NULL && ops->task_exit_current != NULL) {

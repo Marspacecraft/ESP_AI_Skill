@@ -8,3 +8,8 @@ build/
 *.swp
 __pycache__/
 *.pyc
+# ESP-IDF 生成物：由 sdkconfig.defaults* 生成，按 target 而变，不该进版本库
+tests/port/idf/sdkconfig
+tests/port/idf/sdkconfig.old
+tests/port/idf/dependencies.lock
+tests/port/idf/managed_components/

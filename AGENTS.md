@@ -65,8 +65,8 @@ python3 tools/check_workspace_policy.py --as 2 apps/demo/app_demo.c   # ALLOW/DE
 3. **可阻塞接口一律伪阻塞**：`fw_delay_block()` 之后的代码可能永远不执行。清理只能写在
    `exit()` 里；`exit()` 里允许再调阻塞（`in_exit` 期间取消位失效）。
 4. **跨任务状态不许用 `volatile`**：它只挡编译器优化，不给原子性/happens-before。
-   框架内部用 `fw_atomic_*` 访问器；App 里的观测计数用 `__atomic_*`（relaxed 即可，
-   但要明白它**不提供同步语义**）。
+   框架与 App 统一用 `common/include/cm_atomic.h` 的 `CM_ATOMIC_*`（观测计数用
+   `CM_MEM_RELAXED` 即可，但要明白它**不提供同步语义**）。
 5. **内存只从 `fw_` 拿**：`fw_alloc` / `fw_free`，禁止 `malloc` 家族与 STL 默认分配器。
    平台例外：`platform/<板>/` 内部可以调 RTOS/`malloc`（它本来就是适配层）。
 
@@ -148,7 +148,7 @@ Unverified:   还有什么没验证、为什么
 | `Guru Meditation ... Stack protection fault`，只用一行 `fw_log` | `APP_STACK_MIN` 曾定 1024，`fw_vlog` 的 256 字节栈缓冲 + newlib `vsnprintf` 不够 | 现在是 **3072**（实测 2048 勉强活、1024 必死） |
 | `FreeRTOS Task "x" should not return, Aborting now!` | 任务函数直接 return | 结尾 `vTaskDelete(NULL)`；host 上 pthread 返回是正常的，所以这条**只有板上能发现** |
 | 串口只剩 `task_wdt: Task watchdog got triggered`，一条 PASS 都没有 | 高优先级任务 100% 占 CPU，把测试主任务饿死 | 观测者优先级不能被压过；"纯死循环"的真实表现就是"整机无法被观测" |
-| 数据竞争（TSan 报一堆） | 跨任务字段用 `volatile` | 一律 `__atomic_*`；状态位变终态 ≠ 任务已退出 |
+| 数据竞争（TSan 报一堆） | 跨任务字段用 `volatile` | 一律 `CM_ATOMIC_*`；状态位变终态 ≠ 任务已退出 |
 | 提交表满返回 `NOMEM` | 语义错，会让人去查不存在的内存泄漏 | 是 `CM_ERR_BUSY`（"等会儿再来"） |
 | `assert failed: xTaskCreatePinnedToCore ... xCoreID < 1`，然后复位 | 把任务写死绑到 core 1，而 ESP32-C3 是**单核** | 核号按 `portNUM_PROCESSORS` 自适应；host 上没有核的概念，所以这条**只有单核板能发现** |
 

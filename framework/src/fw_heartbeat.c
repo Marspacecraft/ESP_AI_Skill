@@ -14,8 +14,8 @@ void fw_heartbeat_touch(struct fw_app_ctx *c)
     if (c == NULL) {
         return;
     }
-    (void)__atomic_add_fetch(&c->hb_seq, 1u, __ATOMIC_RELAXED);
-    __atomic_store_n(&c->hb_ms, fw_ops()->clock_ms(), __ATOMIC_RELEASE);
+    (void)CM_ATOMIC_ADD_FETCH(&c->hb_seq, 1u, CM_MEM_RELAXED);
+    CM_ATOMIC_STORE(&c->hb_ms, fw_ops()->clock_ms(), CM_MEM_RELEASE);
 }
 
 void fw_app_heartbeat(const struct app_ctx *ctx, uint32_t *seq, uint32_t *age_ms)
@@ -38,10 +38,10 @@ void fw_app_heartbeat(const struct app_ctx *ctx, uint32_t *seq, uint32_t *age_ms
         return;
     }
     if (seq != NULL) {
-        *seq = __atomic_load_n(&c->hb_seq, __ATOMIC_RELAXED);
+        *seq = CM_ATOMIC_LOAD(&c->hb_seq, CM_MEM_RELAXED);
     }
-    last = __atomic_load_n(&c->hb_ms, __ATOMIC_ACQUIRE);
-    base = __atomic_load_n(&c->hb_base_ms, __ATOMIC_RELAXED);
+    last = CM_ATOMIC_LOAD(&c->hb_ms, CM_MEM_ACQUIRE);
+    base = CM_ATOMIC_LOAD(&c->hb_base_ms, CM_MEM_RELAXED);
     if (age_ms != NULL) {
         *age_ms = (uint32_t)(fw_ops()->clock_ms() - ((last != 0u) ? last : base));
     }
@@ -59,10 +59,10 @@ int fw_app_is_stalled(const struct app_ctx *ctx, uint32_t stale_ms)
     if (c == NULL || fw_app_state(c) != FW_APP_STATE_RUNNING) {
         return 0; /* 没在跑就谈不上"卡住"：EMPTY/INIT 还没开始喂 */
     }
-    last = __atomic_load_n(&c->hb_ms, __ATOMIC_ACQUIRE);
+    last = CM_ATOMIC_LOAD(&c->hb_ms, CM_MEM_ACQUIRE);
     if (last == 0u) {
         /* 从没喂过：从进入 RUNNING 算起。纯死循环的 App 就走这条路。 */
-        last = __atomic_load_n(&c->hb_base_ms, __ATOMIC_RELAXED);
+        last = CM_ATOMIC_LOAD(&c->hb_base_ms, CM_MEM_RELAXED);
     }
     return ((uint32_t)(fw_ops()->clock_ms() - last) >= stale_ms) ? 1 : 0;
 }

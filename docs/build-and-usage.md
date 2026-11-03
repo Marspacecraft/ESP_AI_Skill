@@ -53,7 +53,7 @@ platform/   平台适配：九项基础设施 + 能力位
 ├── 实施步骤.md            # 施工计划 + 决策 D1–D50 + 推进记录（nobody）
 │
 ├── api/af_api/           # App 的门面：app.h res.h evt.h svc.h     [tag 5 写]
-├── common/               # cm_types.h/.c：cm_err_t、错误码字符串     [tag 5 写]
+├── common/               # cm_types.h/.c：cm_err_t、错误码；cm_atomic.h：原子访问  [tag 5 写]
 │
 ├── framework/include/    # fw_app.h（转发）、fw_embed.h              [tag 3/4 写]
 ├── framework/src/        # 全部机制实现 + fw_internal.h              [tag 3 写]
@@ -266,8 +266,8 @@ const app_desc_t demo_desc = {
 3. **资源用槽位**：`res_acquire(&ctx->slots[i], RES_KIND_MEM, bytes, RES_LIFE_APP)`，
    框架在退出第 ③ 步回收 `RES_LIFE_APP`；`RES_LIFE_BOOT` 是借整机的，自己还。
 4. **配额超了是 `CM_ERR_QUOTA`，不是 `CM_ERR_NOMEM`**：前者查自己漏没漏释放，后者查整机省着用。
-5. **跨任务共享的状态不许用 `volatile`**：用 `__atomic_*`（观测计数 relaxed 即可，但要明白它
-   不提供同步语义）。
+5. **跨任务共享的状态不许用 `volatile`**，一律经 `common/include/cm_atomic.h` 的
+   `CM_ATOMIC_*`（观测计数 `CM_MEM_RELAXED` 即可，但要明白它不提供同步语义）。
 6. **内存只从 `fw_alloc`/`fw_free` 拿**，禁止 `malloc` 家族与 STL 默认分配器。
 
 ### 6.4 把它做成服务（别的 App 按 id 找你，不链接你）

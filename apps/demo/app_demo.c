@@ -10,11 +10,13 @@
  *
  * 三个计数是**观测口**：写的一方是 App 任务，读的一方是测试/管理器。
  * 跨任务读一个普通 `uint32_t` 在 C11 里就是数据竞争（UB），所以这里一律走
- * `__atomic` 的 relaxed 档——只保证"读到的是某个完整的旧值或新值"，**不**保证
+ * `CM_ATOMIC_*` 的 relaxed 档——只保证"读到的是某个完整的旧值或新值"，**不**保证
  * "你看到 ticks 变了就等于看到了任务里的其它写入"。要同步语义请用框架的状态位，
  * 别拿计数器当信号量。
  */
 #include "apps/demo/app_demo.h"
+
+#include "common/include/cm_atomic.h"
 
 #define APP_DEMO_ID 2u
 #define APP_DEMO_DELAY_MS 100u
@@ -26,21 +28,21 @@ static uint32_t s_exits;
 static cm_err_t demo_init(app_ctx_t *ctx)
 {
     (void)ctx;
-    (void)__atomic_add_fetch(&s_inits, 1u, __ATOMIC_RELAXED);
+    (void)CM_ATOMIC_ADD_FETCH(&s_inits, 1u, CM_MEM_RELAXED);
     return CM_OK;
 }
 
 static void demo_exit(app_ctx_t *ctx)
 {
     (void)ctx;
-    (void)__atomic_add_fetch(&s_exits, 1u, __ATOMIC_RELAXED);
+    (void)CM_ATOMIC_ADD_FETCH(&s_exits, 1u, CM_MEM_RELAXED);
 }
 
 static void demo_task(app_ctx_t *ctx)
 {
     (void)ctx;
     for (;;) {
-        (void)__atomic_add_fetch(&s_ticks, 1u, __ATOMIC_RELAXED);
+        (void)CM_ATOMIC_ADD_FETCH(&s_ticks, 1u, CM_MEM_RELAXED);
         fw_delay_block(APP_DEMO_DELAY_MS);
     }
 }
@@ -57,24 +59,24 @@ const app_desc_t app_demo_desc = {
 
 uint32_t app_demo_ticks(void)
 {
-    return __atomic_load_n(&s_ticks, __ATOMIC_RELAXED);
+    return CM_ATOMIC_LOAD(&s_ticks, CM_MEM_RELAXED);
 }
 
 uint32_t app_demo_inits(void)
 {
-    return __atomic_load_n(&s_inits, __ATOMIC_RELAXED);
+    return CM_ATOMIC_LOAD(&s_inits, CM_MEM_RELAXED);
 }
 
 uint32_t app_demo_exits(void)
 {
-    return __atomic_load_n(&s_exits, __ATOMIC_RELAXED);
+    return CM_ATOMIC_LOAD(&s_exits, CM_MEM_RELAXED);
 }
 
 /* 只该在"没有实例在跑"的时候调用（测试的 stop_and_reset 之后）；有实例在跑时
  * 归零不会崩，但那几个数就没有意义了——它是观测口，不是计数器契约。 */
 void app_demo_reset_counters(void)
 {
-    (void)__atomic_store_n(&s_ticks, 0u, __ATOMIC_RELAXED);
-    (void)__atomic_store_n(&s_inits, 0u, __ATOMIC_RELAXED);
-    (void)__atomic_store_n(&s_exits, 0u, __ATOMIC_RELAXED);
+    (void)CM_ATOMIC_STORE(&s_ticks, 0u, CM_MEM_RELAXED);
+    (void)CM_ATOMIC_STORE(&s_inits, 0u, CM_MEM_RELAXED);
+    (void)CM_ATOMIC_STORE(&s_exits, 0u, CM_MEM_RELAXED);
 }

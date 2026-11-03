@@ -219,8 +219,9 @@ TT_CASE(boot_lifetime_slot_survives_exit)
     /* 借来的东西：框架不许替他收。回收计数也不该记它。 */
     TT_ASSERT_INT(0, (int)fw_app_slots_released(g_ctx));
     TT_ASSERT_TRUE(g_ctx->pub.slots[0] != NULL);
-    /* 借用者要自己交还；这里模拟"下一个 Owner"接手后释放，避免测试漏内存。 */
-    ops->mem_free(g_ctx->pub.slots[0]);
+    /* 借用者要自己交还；这里模拟"下一个 Owner"接手后释放，避免测试漏内存。
+     * 注意用 `fw_free`：槽位里的指针是 `fw_alloc` 发的，带 24/16 字节头。 */
+    fw_free(g_ctx->pub.slots[0]);
     g_ctx->pub.slots[0] = NULL;
     stop_all();
 }

@@ -165,6 +165,52 @@ cm_err_t res_acquire(void *slot, res_kind_e kind, size_t bytes, res_life_e life)
  */
 void res_release(void *slot);
 
+/* ── 配额（控制面，管理器专用，步骤 6.2）────────────────────────
+ *
+ * 配额限制的是**一个 App 自己**能用多少堆内存。它不是安全边界（越界的 App
+ * 仍然能调 `fw_alloc`），而是一个**故障放大器**：一个漏释放的 App 会在自己的
+ * 配额里撞墙，而不是把别人的内存一起吃掉。
+ *
+ * 与 `CM_ERR_NOMEM` 的分工：`QUOTA` 是「你自己用超了」，`NOMEM` 是「整机没了」。
+ * 合成一个码，现场只能靠猜——前者该查漏释放，后者该查是不是真该省着用。
+ */
+
+/** 设置某个实例的配额。**只有管理器该调**。
+ *
+ * @param ctx   目标实例；不得为 NULL。
+ * @param bytes 配额字节数；**0 表示不限**（默认）。
+ * @return `CM_OK`；`CM_ERR_INVALID` `ctx` 为 NULL。
+ *         线程与中断：管理器任务里调；ISR 禁止。非阻塞。
+ *         注意事项：**下调到低于当前用量是允许的**——它不会立刻杀谁，只是让
+ *                   这个 App 的下一次分配失败（`fw_alloc` 返回 NULL、
+ *                   `res_acquire` 返回 `CM_ERR_QUOTA`）。要在下调后立刻生效，
+ *                   配套用 `fw_res_revoke()`。
+ */
+cm_err_t fw_res_set_quota(struct app_ctx *ctx, size_t bytes);
+
+/** 撤销剩余配额：把上限压到**当前已用量**，于是任何新分配都会失败。
+ *
+ * @param ctx 目标实例；不得为 NULL。
+ * @return `CM_OK`；`CM_ERR_INVALID`。
+ *         线程与中断：管理器任务里调；ISR 禁止。
+ *         注意事项：不停止该 App、不发取消位——"停不停"是管理器的决定，
+ *                   不是配额机制的。已经分配的内存不会被动释放（那是 App 的
+ *                   清理，归 `exit()`）。
+ */
+cm_err_t fw_res_revoke(struct app_ctx *ctx);
+
+/** 这个实例当前的用量/配额/被拒次数。诊断与测试用。
+ *
+ * @param ctx 目标实例；NULL 时全部写 0。
+ * @param used_bytes     可为 NULL；当前记账的字节数（只算 `fw_alloc` 与
+ *                       `RES_KIND_MEM` 的 `res_acquire`）。
+ * @param quota_bytes    可为 NULL；0 表示不限。
+ * @param denied_count   可为 NULL；因配额被拒的次数。
+ *         线程与中断：任意任务可调；ISR 禁止。
+ */
+void fw_res_usage(const struct app_ctx *ctx, size_t *used_bytes, size_t *quota_bytes,
+                  uint32_t *denied_count);
+
 /* ── 使用面（App 能调的全部框架函数）───────────────────────────── */
 
 /** 伪阻塞延时：等至少 ms 毫秒，**返回之后的行可能永远不执行**。

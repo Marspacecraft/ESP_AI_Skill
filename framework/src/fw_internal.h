@@ -309,11 +309,28 @@ struct fw_app_ctx {
     res_kind_e slot_kind[APP_CTX_SLOTS]; /* 每个槽位的资源种类（槽位为空时无意义） */
     res_life_e slot_life[APP_CTX_SLOTS]; /* 生命周期：决定退出路径管不管它 */
     uint32_t slots_released;             /* 退出路径回收了几个槽位（测试用） */
+    size_t used_bytes;                   /* 记账：本实例当前占用的堆字节数（原子） */
+    size_t quota_bytes;                  /* 0 = 不限 */
+    uint32_t denied_count;               /* 因配额被拒的次数（原子） */
 };
 
 /** 退出路径第 ③ 步：回收所有 `RES_LIFE_APP` 的槽位，恰好一次。
  *  只给 `fw_run_exit()` 用。`RES_LIFE_BOOT` 的槽位**不动**（不是我们的东西）。 */
 void fw_res_release_all(struct fw_app_ctx *c);
+
+/** 要错误码的分配：区分 `CM_ERR_QUOTA`（你超了）与 `CM_ERR_NOMEM`（整机没了）。
+ *  只给框架内部（`res_acquire`）用，App 侧只有 `fw_alloc`。 */
+void *fw_alloc_ex(struct fw_app_ctx *c, size_t bytes, cm_err_t *out);
+
+/** 试着为 `bytes` 预留配额（原子地加，超额再退回）。
+ *
+ * @return 1 已预留；0 超配额（调用方该返回 `CM_ERR_QUOTA` / NULL）。
+ *         线程与中断：App 任务里调；ISR 禁止。
+ */
+int fw_quota_reserve(struct fw_app_ctx *c, size_t bytes);
+
+/** 归还 `bytes` 配额。**只给 `fw_free()` 与资源回收路径用**。 */
+void fw_quota_release(struct fw_app_ctx *c, size_t bytes);
 
 /** 这个实例在退出路径上回收了几个槽位。测试与诊断用。 */
 uint32_t fw_app_slots_released(const struct fw_app_ctx *c);

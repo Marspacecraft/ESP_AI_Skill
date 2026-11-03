@@ -14,6 +14,7 @@ const char *cm_err_str(cm_err_t e)
     case CM_ERR_BUSY:          return "CM_ERR_BUSY";
     case CM_ERR_STATE:         return "CM_ERR_STATE";
     case CM_ERR_CANCELED:      return "CM_ERR_CANCELED";
+    case CM_ERR_QUOTA:         return "CM_ERR_QUOTA";
     }
     return "CM_ERR_?";
 }

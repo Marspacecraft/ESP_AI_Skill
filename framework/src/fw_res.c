@@ -49,7 +49,7 @@ static void slot_free(struct fw_app_ctx *c, int i)
         return;
     }
     if (c->slot_kind[i] == RES_KIND_MEM) {
-        ops->mem_free(c->pub.slots[i]);
+        fw_free(c->pub.slots[i]); /* 与 fw_alloc 配对：会同时还配额 */
     }
     /* 槽位是唯一权威：句柄先清掉，`slot_kind` 留成旧值也无害。 */
     c->pub.slots[i] = NULL;
@@ -96,12 +96,17 @@ cm_err_t res_acquire(void *slot, res_kind_e kind, size_t bytes, res_life_e life)
     }
 
     switch (kind) {
-    case RES_KIND_MEM:
-        handle = ops->mem_alloc(bytes);
+    case RES_KIND_MEM: {
+        /* 走记账分配：配额超了要能返回 `CM_ERR_QUOTA`，而不是和"整机没内存"
+         * 混成同一个 `CM_ERR_NOMEM`。 */
+        cm_err_t rc = CM_OK;
+
+        handle = fw_alloc_ex(c, bytes, &rc);
         if (handle == NULL) {
-            return CM_ERR_NOMEM; /* 槽位保持空着：失败不留半个登记 */
+            return rc; /* 槽位保持空着：失败不留半个登记 */
         }
         break;
+    }
     default:
         return CM_ERR_INVALID;
     }

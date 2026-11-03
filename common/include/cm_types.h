@@ -26,6 +26,9 @@ extern "C" {
  *   - `CM_ERR_VERSION`：契约版本不匹配，启动期就该拒，不要试图兼容；
  *   - `CM_ERR_CANCELED`：App 正在被停止，调用点不该再继续；通常由框架内部用，
  *     极少回给 App（App 收到它就该顺着退出路径走）。
+ *   - `CM_ERR_QUOTA`：**你**用超了配额，不是整机没内存。两者分开的理由：
+ *     前者该查自己是不是漏了释放，后者该查是不是真该省着用；合成一个码，
+ *     现场就只能靠猜。
  */
 typedef enum {
     CM_OK = 0,               /**< 成功。所有 API 的零值都是它，便于 `if (rc)` 判定 */
@@ -37,7 +40,8 @@ typedef enum {
     CM_ERR_TIMEOUT = 6,      /**< 等待超时 */
     CM_ERR_BUSY = 7,         /**< 同一 key 已有未完成的提交 */
     CM_ERR_STATE = 8,        /**< 状态机上不允许这个动作（如对 STOPPED 之外的再 start） */
-    CM_ERR_CANCELED = 9      /**< 当前 App 正在被停止 */
+    CM_ERR_CANCELED = 9,     /**< 当前 App 正在被停止 */
+    CM_ERR_QUOTA = 10        /**< 超出了本 App 的资源配额（不是"系统没内存"） */
 } cm_err_t;
 
 /** 错误码的稳定短名，只用于日志与测试输出。

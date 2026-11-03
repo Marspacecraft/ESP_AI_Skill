@@ -129,4 +129,11 @@ if [ -f tools/check_caps.py ]; then
     fi
 fi
 
+#   check_svc_ids.py —— 服务号 ↔ 登记表双向一致（撞号只在运行期才说话，只能在构建期抓）。
+if [ -f tools/check_svc_ids.py ]; then
+    if ! python3 tools/check_svc_ids.py; then
+        rc=1
+    fi
+fi
+
 exit "$rc"

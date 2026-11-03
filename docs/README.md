@@ -11,7 +11,7 @@
 | [`pf-ops-decision.md`](pf-ops-decision.md) | 平台要提供什么：九项端口表的逐条裁决、为什么只有九项、为什么 `pf_rtos.h` 被合并进来 |
 | [`error-codes.md`](error-codes.md) | 每个 `cm_err_t` 谁产出、什么情况下、调用方该做什么；`CANCELED` 为什么是预留值 |
 | [`acceptance.md`](acceptance.md) | A1–A8 八条验收线：命令是什么、现在跑出什么、哪几条只能人审 |
-| [`build-and-usage.md`](build-and-usage.md) | **构建框架与使用说明（详细版）**：`build.sh` 到底做了什么、四道门禁各判什么、怎么写 App、怎么接板、怎么跑真机、红了怎么看 |
+| [`build-and-usage.md`](build-and-usage.md) | **构建框架与使用说明（详细版）**：`build.sh` 到底做了什么、五道门禁各判什么、怎么写 App、怎么接板、怎么跑真机、红了怎么看 |
 
 ## 四份公开契约（`api/af_api/`）
 

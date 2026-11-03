@@ -326,6 +326,22 @@ uint32_t fw_app_slots_released(const struct fw_app_ctx *c);
 
 /** 取**当前任务**的上下文；不在 App 任务里时返回 NULL。
  *  线程与中断：靠 C11 `_Thread_local` 实现，每个任务各一份；ISR 里返回 NULL。 */
+/* ── 能力注册表（board → framework 的反方向） ───────────────────── */
+
+/** 平台报了这一位吗（只看 `caps()`，不看软件实现）。 */
+bool fw_caps_reported(uint32_t bit);
+
+/** 取这一位注册的实现表；没注册返回 NULL。
+ *
+ * @return 板子在 `fw_cap_register()` 里交的指针，或 NULL。
+ *         线程与中断：任意任务；ACQUIRE 读，读到即可安全解引用。
+ *         注意事项：返回的指针**活到关机**，调用方不得释放。
+ */
+const void *fw_cap_ops(uint32_t bit);
+
+/** 清空注册表。只给 `fw_reset()`（测试收尾）用，板子无注销路径。 */
+void fw_cap_forget(void);
+
 struct fw_app_ctx *fw_current_ctx(void);
 
 /** 喂一次心跳。**只给框架内部的"让出点"调**（`fw_delay_block`、`fw_event_wait`、

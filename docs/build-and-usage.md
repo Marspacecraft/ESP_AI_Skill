@@ -91,7 +91,7 @@ platform/   平台适配：九项基础设施 + 能力位
 
 ```bash
 ./build.sh          # 只编译：22 个用例二进制，编不过就退出 1
-./build.sh run      # 编译 + 逐个执行 + 四道静态门禁
+./build.sh run      # 编译 + 逐个执行 + 五道静态门禁
 ```
 
 输出形态：
@@ -121,7 +121,7 @@ link 面: PASS（5 个 tag，16 个对外头，闭包逐条包含关系成立）
 3. **双重判定**：运行阶段，**退出码非 0 或输出里有以 `FAIL ` 开头的行**都算红。
    为什么双重——某个 `main` 忘了 `return tt_summary()` 时退出码永远是 0，只看退出码会漏。
 4. **空集不是失败**：没有任何用例时打印 `no tests` 并返回 0。但 `no tests` **不许被说成"通过"**。
-5. **四道门禁是 `run` 模式的一部分**，顺序固定：入口唯一 → link 面 → 纯 C 边界 → 能力目录。
+5. **五道门禁是 `run` 模式的一部分**，顺序固定：入口唯一 → link 面 → 纯 C 边界 → 能力目录 → 服务号。
    任何一道红，整轮 rc=1。
 
 ### 3.3 编译标志（每一条都有原因）
@@ -152,12 +152,12 @@ CC="cc -fsanitize=thread -g" ./build.sh run
 | `BUILD FAIL xxx` | `build/xxx.log` 的前 20 行（终端只打这些） |
 | 某条 `FAIL` 行 | 行尾的 `| 文件:行号` 就是断言位置 |
 | `FAIL ... -- 超时（60s）没有返回` | 用例里某个等待没有上限，或真的死锁 |
-| 四道门禁某一红 | 它自己会把"哪条规则、哪个路径、为什么"打出来 |
+| 五道门禁某一红 | 它自己会把"哪条规则、哪个路径、为什么"打出来 |
 | 退出码 2 | **环境或用法问题**，不是代码问题；先看是不是缺 `clang` |
 
 ---
 
-## 4. 四道门禁判什么
+## 4. 五道门禁判什么
 
 | 门禁 | 命令 | 判据 | 典型红证（故意注入） |
 |---|---|---|---|
@@ -165,6 +165,7 @@ CC="cc -fsanitize=thread -g" ./build.sh run
 | link 面 | `python3 tools/check_link.py` | 每个 tag 能 link 的每个头，其 `clang -M` 闭包 ⊆ 该 tag 的 `link` 集合 | 给 `framework/include/fw_app.h` 加 `#include "platform/port/pf_ops.h"` → `FAIL（4 处越界）` |
 | 纯 C 边界 | `python3 tools/check_purity.py` | `common/ api/ framework/ apps/` 里不许出现 SDK 头与 RTOS 符号 | 在 `apps/demo/app_demo.c` 加 `#include "esp_log.h"` → `禁止的头 'esp_log.h'（命中 'esp_'）` |
 | 能力目录 | `python3 tools/check_caps.py` | `pf_ops.h` 的 `PF_CAP_*` ↔ `docs/generated/catalog.md` 双向一致（位号、宏、接口头三处） | 目录里给 `PF_CAP_DISPLAY` 填一个不存在的 `api/af_api/disp.h` → `FAIL（1 处不一致）` |
+| 服务号 | `python3 tools/check_svc_ids.py` | `api/af_api/*.h` 的 `*_SVC_ID` ↔ `docs/generated/svc-ids.md` 双向一致，且**同一个号不许被两个服务占用** | 让两个头都写 `#define X_SVC_ID 5u` → `FAIL（1 处不一致）：服务号 5 被两个宏占用` |
 
 每个检查器都有 `--selftest`，且**至少三条负向用例**——不能红的检查器等于没有检查器：
 
@@ -173,6 +174,7 @@ python3 tools/check_workspace_policy.py --selftest   # policy_selftest
 python3 tools/check_link.py --selftest               # link_selftest
 python3 tools/check_purity.py --selftest             # purity_selftest
 python3 tools/check_caps.py --selftest               # caps_selftest
+python3 tools/check_svc_ids.py --selftest            # svc_ids_selftest
 ```
 
 **要证明一个门禁真的有效**，标准动作是：注入一处违规 → 确认它变红 → 还原 → 确认
@@ -351,6 +353,28 @@ fw_app_ctx_free(c);                        /* 任务结束了才许释放 */
 
 另有两个表外钩子：`pf_platform_ops()`（返回本板表）与 `pf_platform_log(const char*)`
 （日志不占用了表，否则加一列就要所有板重签）。
+
+### 7.1.1 有额外硬件的板：把实现**交上去**（机制已就位，具体能力逐个定）
+
+`pf_ops_t` 只收"系统跑起来必需的机制"（内存、时钟、睡眠、锁、任务）。显示、存储、
+网络、音频这类能力**不进那张表**——判据是"去掉它，框架还能不能跑"。它们走另一条缝：
+
+```c
+#include "platform/port/pf_cap.h"
+
+/* boot 里、fw_init() 之前，每位注册一次；不实现就不写这行 */
+fw_cap_register(PF_CAP_XXX, &my_xxx_ops);   /* 具体哪一项、表长什么样，逐个能力定 */
+```
+
+> 目前**还没有任何一项能力定案**：注册表与缝已经就位并通过用例，第一个真实能力等
+> 需求明确后再加。屏幕（墨水屏/液晶屏）影响体验最大、两类的刷新语义差得远，
+> 明确留到后面单独定方案。
+
+- 没注册的位：`cap_available()` 回答 false，相关调用返回 `CM_ERR_NOT_SUPPORTED`；
+- **不需要弱符号、不需要空实现、不需要 `#if`**：板子没有这个能力，就一个符号都不用提供；
+- 注册的指针**活到关机**（框架只存指针，不拷贝、不释放）；重复注册返回 -1。
+
+`cap_available()` 因此是"硬件报了 **且** 软件注册了"——只有其一都算不可调。
 
 ### 7.2 三个最容易写错的地方（都踩过）
 

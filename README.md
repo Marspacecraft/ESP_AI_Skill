@@ -26,7 +26,7 @@
 |---|---|---|
 | **伪阻塞** | 所有等待都走框架，取消位命中就 `fw_run_exit()` **不返回**；清理只能写在 `exit()` 里，框架保证它恰好调一次 | "记得在阻塞点之后别写清理" |
 | **编译期隔离** | 依赖闭包门禁：App 的公开头闭包必须落在它自己的 `link` 集合里，越界报错指向撑破闭包的那个头 | "评审时留意分层" |
-| **机器判定** | 四行交付（Build / Host / Device / Unverified）+ 四道门禁；`SKIP` 不算通过，退出码 `2` 不算通过 | "AI 说它测过了" |
+| **机器判定** | 四行交付（Build / Host / Device / Unverified）+ 五道门禁；`SKIP` 不算通过，退出码 `2` 不算通过 | "AI 说它测过了" |
 
 一句话：**接口在头文件里，判定在门禁里，证据在四行状态里。三者缺一，就等于没做。**
 
@@ -88,7 +88,7 @@ common/        类型、错误码、原子宏——最底层，不认上面任�
 ## 30 秒跑起来
 
 ```bash
-./build.sh run      # 编译全部用例 + 跑四道门禁 + 跑 host 测试（唯一构建入口）
+./build.sh run      # 编译全部用例 + 跑五道门禁 + 跑 host 测试（唯一构建入口）
 ```
 
 一个用例一个二进制，输出固定四种行：`PASS` / `FAIL` / `SKIP` / `SUMMARY`。
@@ -170,7 +170,7 @@ python3 tools/check_workspace_policy.py --as 2 apps/demo/app_demo.c   # ALLOW/DE
 
 > 数字的唯一出处是 [`AGENTS.md`](AGENTS.md) §1；这里是写这份介绍时的快照，漂了以那边为准。
 
-- host 用例 **159 条**全绿；四道门禁 PASS（入口唯一 / link 闭包 / 纯 C 边界 / 能力目录）
+- host 用例 **159 条**全绿；五道门禁 PASS（入口唯一 / link 闭包 / 纯 C 边界 / 能力目录 / 服务号）
 - 真机：ESP32-C3（ai-passport）与 ESP32-S3 devkit 各 **37 条**，`DEVICE_DONE rc=0`
 - ASan、TSan 全量 0 报告
 

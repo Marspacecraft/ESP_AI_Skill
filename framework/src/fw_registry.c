@@ -141,6 +141,12 @@ cm_err_t fw_init(const fw_manifest_t *manifests, uint32_t count)
         s_used_ids[i] = s_apps[i]->id;
     }
 
+    /* 提交表要一把锁（5.2）。放在这里建，而不是第一次提交时惰性建：
+     * 惰性建会引入一个"谁先到谁建"的竞争，而 init 本来就是单线程的。 */
+    if (fw_submit_init() != CM_OK) {
+        return fail_and_clear(CM_ERR_INVALID);
+    }
+
     s_initialized = 1;
     return CM_OK;
 }
@@ -203,5 +209,6 @@ void fw_reset(void)
     s_bound = 0;
     s_initialized = 0;
     fw_svc_forget();
+    fw_submit_forget();
     fw_boot_forget();
 }

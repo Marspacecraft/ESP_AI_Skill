@@ -202,6 +202,77 @@ void fw_svc_drop_owner(struct fw_app_ctx *owner);
 /** 清空服务表。**只给 `fw_reset()` 用**。 */
 void fw_svc_forget(void);
 
+/* ── 提交型接口（步骤 5.2）──────────────────────────────────────
+ *
+ * 形态：调用方把一帧数据交给服务，**立即返回**，不等它被消费。屏幕刷新、
+ * 网络发送都是这个形状——调用方是 App 的任务，不能为了等外设而把 200ms
+ * 的预算耗掉。
+ *
+ * **所有权（D24，本步骤唯一的裁决）：提交即拷贝。**
+ * `fw_svc_submit()` 返回后，调用方手上的那块缓冲区就可以立刻重用——框架
+ * 在提交时已经拷了一份自己的。代价是每帧一份拷贝 + 一份堆内存，换来的是
+ * "调用方忘了"这类错误**不可能发生**：没有共享期，就没有共享期违约。
+ *
+ * 备选方案与被否的理由：
+ *   - (b) 零拷贝 + "完成事件之前不许改"：省一次拷贝，但违约是"画面撕裂"
+ *     这种**静默**错误，只有在真面板上才会显形，而且发生在别人的任务里。
+ *   - (c) 双缓冲：调用方持有 N 块轮转。省拷贝，但把"什么时候能写第 k 块"
+ *     这个状态机推给了每个 App——那正是本项目要消灭的东西。
+ *   v1 没有屏幕、也没有任何提交型服务，先按 (a) 把语义钉死；(b) 记在
+ *   §6.7，等真有吞吐压力时再谈。
+ */
+typedef void (*fw_submit_done_fn)(uint32_t key, int superseded, void *user);
+
+/** 单帧上限。超过就是 `CM_ERR_INVALID`——**不许悄悄截断**。 */
+#define FW_SUBMIT_MAX_BYTES 4096u
+
+/** 提交表容量（全框架共用，不是每服务一份）。8 帧已经够 v1；表是静态的。 */
+#define FW_SUBMIT_SLOTS 8u
+
+/** 提交一帧给某个服务。
+ *
+ * @param svc  目标服务 id；必须已注册且 owner 正在跑。
+ * @param key  帧的标识。**同一个 key 再提交，会顶掉还没被取走的那一帧**。
+ * @param data 数据；不得为 NULL。
+ * @param len  字节数；`1..FW_SUBMIT_MAX_BYTES`。
+ * @param done 完成回调，可为 NULL。`superseded` 非 0 表示这一帧**没被消费**，
+ *             是被同 key 的新帧顶掉或被 `fw_reset()` 丢掉的。
+ * @param user 原样回传给 `done`。
+ * @return `CM_OK`；`CM_ERR_INVALID` 参数非法；`CM_ERR_NOT_SUPPORTED` 服务没注册；
+ *         `CM_ERR_UNAVAILABLE` 服务已死；`CM_ERR_NOMEM` 拷贝分配失败或没有空槽；
+ *         `CM_ERR_BUSY` 提交表正被另一个任务使用（**不等待，试一次就走**）。
+ *         线程与中断：App 任务里调；ISR 禁止。非阻塞（不睡、不查取消位）。
+ *         注意事项：`data` 在返回后即可释放；`done` 在**取帧的任务**里同步调用，
+ *                   不要在回调里再调 `fw_svc_submit_take()`（会拿到 BUSY）。
+ */
+cm_err_t fw_svc_submit(fw_svc_id_t svc, uint32_t key, const void *data, size_t len,
+                       fw_submit_done_fn done, void *user);
+
+/** 取一帧。由服务的 owner 任务调。
+ *
+ * @param svc     服务 id。
+ * @param out_key 输出该帧的 key；可为 NULL。
+ * @param buf     接收缓冲区。
+ * @param cap     `buf` 的容量。**cap < 帧长时返回 `CM_ERR_INVALID` 且帧留在表里**，
+ *                `out_len` 仍会被写成这一帧需要的字节数（方便调用方扩容重试）。
+ * @param out_len 输出帧长；可为 NULL。
+ * @return `CM_OK`；`CM_ERR_INVALID` 参数非法或容量不够；`CM_ERR_NOT_SUPPORTED`
+ *         这个服务没有任何待取的帧（**空队列不是错误码 NOMEM**）。
+ *         线程与中断：owner 任务里调；ISR 禁止。非阻塞。
+ *         注意事项：取走后框架那份拷贝被释放，`done(key, 0, user)` 同步触发。
+ */
+cm_err_t fw_svc_submit_take(fw_svc_id_t svc, uint32_t *out_key,
+                            void *buf, size_t cap, size_t *out_len);
+
+/** 这个服务还有几帧没被取走。调试与测试用。 */
+uint32_t fw_svc_submit_count(fw_svc_id_t svc);
+
+/** 建提交表的锁。**只给 `fw_init()` 用**；返回非 `CM_OK` 表示平台建不出锁。 */
+cm_err_t fw_submit_init(void);
+
+/** 丢掉所有待取帧（各自触发 `done(key, 1, user)`）并清锁。**只给 `fw_reset()`。** */
+void fw_submit_forget(void);
+
 
 /** 清空活实例表。**只给 `fw_reset()` 用**。 */
 void fw_boot_forget(void);

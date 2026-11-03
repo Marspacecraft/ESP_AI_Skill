@@ -30,12 +30,12 @@ static void fw_app_entry(void *arg)
 
     t_current = c;
 
-    c->state = FW_APP_STATE_INIT;
+    fw_atomic_store_u32(&c->state, (uint32_t)FW_APP_STATE_INIT);
     if (c->desc->init(&c->pub) != CM_OK) {
         fw_run_exit(c, FW_APP_STATE_FAILED);
     }
 
-    c->state = FW_APP_STATE_RUNNING;
+    fw_atomic_store_u32(&c->state, (uint32_t)FW_APP_STATE_RUNNING);
     c->desc->task(&c->pub);
 
     /* 走到这里说明 task() 返回了。按契约，主任务是不该返回的——
@@ -43,13 +43,16 @@ static void fw_app_entry(void *arg)
     fw_run_exit(c, FW_APP_STATE_FAILED);
 }
 
-struct fw_app_ctx *fw_app_ctx_new(const app_desc_t *desc)
+struct fw_app_ctx *fw_app_ctx_new_with_id(const app_desc_t *desc, uint32_t id)
 {
     const pf_ops_t *ops = fw_ops();
     struct fw_app_ctx *c;
 
     if (ops == NULL || desc == NULL || ops->mem_alloc == NULL) {
         return NULL;
+    }
+    if (id < APP_ID_MIN || id > APP_ID_MAX) {
+        return NULL; /* 0 是无效哨兵，1 是管理器，都不该跑到实例 id 上 */
     }
 
     c = (struct fw_app_ctx *)ops->mem_alloc(sizeof *c);
@@ -59,10 +62,18 @@ struct fw_app_ctx *fw_app_ctx_new(const app_desc_t *desc)
 
     (void)memset(c, 0, sizeof *c);
     c->desc = desc;
-    c->pub.id = desc->id;
+    c->pub.id = id;
     c->pub.fw = c;
-    c->state = FW_APP_STATE_EMPTY;
+    fw_atomic_store_u32(&c->state, (uint32_t)FW_APP_STATE_EMPTY);
     return c;
+}
+
+struct fw_app_ctx *fw_app_ctx_new(const app_desc_t *desc)
+{
+    if (desc == NULL || desc->id < APP_ID_MIN || desc->id > APP_ID_MAX) {
+        return NULL;
+    }
+    return fw_app_ctx_new_with_id(desc, desc->id);
 }
 
 void fw_app_ctx_free(struct fw_app_ctx *c)
@@ -83,7 +94,7 @@ cm_err_t fw_app_start(struct fw_app_ctx *c)
     if (c == NULL || ops == NULL || ops->task_create == NULL) {
         return CM_ERR_STATE;
     }
-    if (c->state != FW_APP_STATE_EMPTY) {
+    if (fw_atomic_load_u32(&c->state) != (uint32_t)FW_APP_STATE_EMPTY) {
         return CM_ERR_STATE;
     }
 
@@ -94,10 +105,10 @@ cm_err_t fw_app_start(struct fw_app_ctx *c)
 
     /* 先把状态推离 EMPTY：任务一建好就可能立刻跑起来，
      * 不这么做的话"同一上下文启动两次"的窗口是开着的。 */
-    c->state = FW_APP_STATE_INIT;
+    fw_atomic_store_u32(&c->state, (uint32_t)FW_APP_STATE_INIT);
 
     if (ops->task_create(&td) == NULL) {
-        c->state = FW_APP_STATE_EMPTY;
+        fw_atomic_store_u32(&c->state, (uint32_t)FW_APP_STATE_EMPTY);
         return CM_ERR_NOMEM;
     }
     return CM_OK;
@@ -108,18 +119,18 @@ fw_app_state_e fw_app_state(const struct fw_app_ctx *c)
     if (c == NULL) {
         return FW_APP_STATE_EMPTY;
     }
-    return (fw_app_state_e)c->state;
+    return (fw_app_state_e)fw_atomic_load_u32(&c->state);
 }
 
 uint32_t fw_app_exit_calls(const struct fw_app_ctx *c)
 {
-    return (c == NULL) ? 0u : c->exit_calls;
+    return (c == NULL) ? 0u : fw_atomic_load_u32(&c->exit_calls);
 }
 
 void fw_app_request_cancel(struct fw_app_ctx *c)
 {
     if (c != NULL) {
-        c->cancel = 1u;
+        fw_atomic_store_u32(&c->cancel, 1u);
     }
 }
 

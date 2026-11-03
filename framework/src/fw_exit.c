@@ -31,20 +31,19 @@ void fw_run_exit(struct fw_app_ctx *c, fw_app_state_e end_state)
     ops = fw_ops();
 
     /* ① 先清取消位。 */
-    c->cancel = 0u;
-    c->in_exit = 1u;
+    fw_atomic_store_u32(&c->cancel, 0u);   /* 先清位：否则 exit() 里的阻塞再次命中取消位 */
+    fw_atomic_store_u32(&c->in_exit, 1u);  /* 清理期间取消无效 */
 
     /* ② exit() 恰好一次。 */
-    if (c->exit_calls == 0u) {
-        c->exit_calls = 1u;
-        c->state = FW_APP_STATE_STOPPING;
+    if (fw_atomic_exchange_u32(&c->exit_calls, 1u) == 0u) {
+        fw_atomic_store_u32(&c->state, (uint32_t)FW_APP_STATE_STOPPING);
         c->desc->exit(&c->pub);
     }
 
     /* ③ 资源回收：`res_track()` 阶段 6 才实现，这里暂时没有可回收的东西。 */
 
     /* ④ 终态。 */
-    c->state = (uint32_t)end_state;
+    fw_atomic_store_u32(&c->state, (uint32_t)end_state);
 
     /* ⑤ 结束当前任务，之后一行都不会执行。 */
     if (ops != NULL && ops->task_exit_current != NULL) {

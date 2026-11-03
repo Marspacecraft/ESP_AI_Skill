@@ -75,6 +75,52 @@ const app_desc_t *fw_app_at(uint32_t index);
  *  线程与中断：无任务运行时才可调。 */
 void fw_reset(void);
 
+/* ── id 发号器 ─────────────────────────────────────────────────── */
+
+/** 领一个**从未用过**的 id（D18：重启不复用旧 id）。
+ *
+ * @param out 输出参数；不得为 NULL。
+ * @return `CM_OK` 已写入 `[2,254]` 内最小的空闲 id 并标记为已用；
+ *         `CM_ERR_NOMEM` 号码发完了（253 个全用光）。失败时 `*out` 不变。
+ *         线程与中断：仅管理器/测试在"要新建实例"时调用；ISR 禁止。
+ *         注意事项：**没有对应的释放函数**——id 只增不减。复用旧 id 会让
+ *                   拿着它的人静默操作到新实例上，代价远大于号码耗尽。
+ */
+cm_err_t fw_alloc_id(uint32_t *out);
+
+/* ── 启动 ──────────────────────────────────────────────────────── */
+
+/** 拉起所有 `APP_FLAG_SYSTEM` 的 App（阶段 3 只做这一半）。
+ *
+ * @return `CM_OK` 该起的都起了；`CM_ERR_STATE` 未 `fw_init()` 或已经 boot 过；
+ *         平台拒绝建任务时返回它的错误码，已起的保持运行（不做回滚——把已经
+ *         跑起来的任务杀掉比留着更难解释）。
+ *         线程与中断：仅初始化阶段；ISR 禁止。
+ *         注意事项：业务 App 由管理器用 `fw_app_ctx_new_with_id()` +
+ *                   `fw_app_start()` 自行拉起，`fw_boot()` 不管它们。
+ */
+cm_err_t fw_boot(void);
+
+/** `fw_boot()` 拉起并仍在表里的实例个数。 */
+uint32_t fw_live_count(void);
+
+/** 第 index 个活实例的上下文；越界返回 NULL。 */
+struct fw_app_ctx *fw_live_at(uint32_t index);
+
+/** 把一个实例从活实例表里摘掉（**不释放它**，见 D19）。
+ *
+ * @param c `fw_live_at()` 拿到的指针；不在表里时无操作。
+ *         线程与中断：管理器在自己任务里调；ISR 禁止。
+ *         注意事项：先 `remove` 再 `fw_app_ctx_free()`——顺序反了就会在表里
+ *                   留下一根悬垂指针，`fw_live_at()` 之后读到的是野内存。
+ *                   **只能对已经进 STOPPED/FAILED 的实例调用**；还在跑就摘表，
+ *                   等于把"谁负责停它"这件事弄丢了。
+ */
+void fw_live_remove(struct fw_app_ctx *c);
+
+/** 清空活实例表。**只给 `fw_reset()` 用**。 */
+void fw_boot_forget(void);
+
 /* ── App 运行期上下文与伪阻塞 ──────────────────────────────────── */
 
 /** 伪阻塞的单片长度上限（毫秒）。架构约束是"单段不可打断等待 < 200ms"，
@@ -100,13 +146,45 @@ typedef enum fw_app_state_e {
 struct fw_app_ctx {
     app_ctx_t pub;                  /* 必须是第一个成员：App 拿到的是 &pub */
     const app_desc_t *desc;
-    volatile uint32_t cancel;       /* 取消位：1 = 有停止请求 */
-    volatile uint32_t state;        /* fw_app_state_e */
-    volatile uint32_t exit_calls;   /* exit() 被调用过几次（只该是 0 或 1） */
-    volatile uint32_t in_exit;      /* 1 = 正在跑 exit()：取消位失效 */
+    uint32_t cancel;                /* 取消位：1 = 有停止请求 */
+    uint32_t state;                 /* fw_app_state_e */
+    uint32_t exit_calls;            /* exit() 被调用过几次（只该是 0 或 1） */
+    uint32_t in_exit;               /* 1 = 正在跑 exit()：取消位失效 */
 };
 
-/** 分配一个上下文并做静态初始化；**不创建任务**。
+/* 跨任务读写的四个字段**必须**经下面三个函数访问。
+ *
+ * 为什么不用 `volatile`：`volatile` 只挡编译器优化，不提供原子性，也不给
+ * 线程模型任何"这件事发生在那件事之前"的承诺——C11 里它仍是数据竞争（UB）。
+ * 在多核 ESP32 上，编译器把一次 `cancel=1` 重排到 `state=RUNNING` 之后是完全
+ * 合法的，现场表现是"请求了停止但状态还在跑"。
+ *
+ * 为什么不用 `<stdatomic.h>`：与 `common/` 的选择一致——老工具链对 `_Atomic`
+ * 支持不全，而 `__atomic_*` 是 GCC/Clang 共有的、32 位无需 libatomic 的路径。
+ * 迁移到 `atomic_uint` 时不改语义，只改写法。
+ *
+ * 用哪一档序：
+ *   - 取消位/状态用 ACQUIRE/RELEASE：写的一方"把话说出去"，读的一方必须看见
+ *     写之前发生的事（否则读到 STOPPED 却读不到 exit 里写的日志/计数）。
+ *   - 计数器用 RELAXED：只要求"整个数"，不要求同步别人。
+ */
+static inline uint32_t fw_atomic_load_u32(const uint32_t *p)
+{
+    return __atomic_load_n(p, __ATOMIC_ACQUIRE);
+}
+
+static inline void fw_atomic_store_u32(uint32_t *p, uint32_t v)
+{
+    __atomic_store_n(p, v, __ATOMIC_RELEASE);
+}
+
+/** 置 1 并返回**旧值**：`exit_calls` 的"恰好一次"靠它。 */
+static inline uint32_t fw_atomic_exchange_u32(uint32_t *p, uint32_t v)
+{
+    return __atomic_exchange_n(p, v, __ATOMIC_ACQ_REL);
+}
+
+/** 分配一个上下文并做静态初始化，id 取 `desc->id`（首次启动用这个）。
  *
  * @param desc 注册表里那份描述体；不得为 NULL，`desc->id` 已在 `fw_init()` 校验过。
  * @return 上下文指针；平台表未绑或内存不足返回 NULL。
@@ -115,6 +193,17 @@ struct fw_app_ctx {
  *                   失败时不留任何状态。
  */
 struct fw_app_ctx *fw_app_ctx_new(const app_desc_t *desc);
+
+/** 同 `fw_app_ctx_new()`，但**显式指定实例 id**（重启用这个，D18）。
+ *
+ * @param desc 描述体；不得为 NULL。
+ * @param id   实例 id，必须 ∈ `[2,254]`，且必须是 `fw_alloc_id()` 发出来的。
+ * @return 上下文指针；参数非法、平台表未绑或内存不足返回 NULL。
+ *         线程与中断：仅管理器/测试侧；ISR 禁止。
+ *         注意事项：**不会**检查 id 是否已被别人用掉——那是 `fw_alloc_id()`
+ *                   的职责；这里只保证范围合法。新实例的 id 必须与旧实例不同。
+ */
+struct fw_app_ctx *fw_app_ctx_new_with_id(const app_desc_t *desc, uint32_t id);
 
 /** 释放上下文。**只能在任务已经结束之后调**（任务还在跑就释放 = UAF）。 */
 void fw_app_ctx_free(struct fw_app_ctx *c);

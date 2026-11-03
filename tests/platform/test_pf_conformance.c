@@ -65,10 +65,15 @@ static uint32_t caps_with_reserved_bit(void)
 
 /* ── 共享夹具 ───────────────────────────────────────────────────── */
 static pf_mutex_t *g_mx;
-static volatile int g_take_result = 123; /* 123 = 还没跑 */
-static volatile int g_task_ran = 0;
-static volatile int g_exit_before = 0;
-static volatile int g_exit_after = 0;
+/* 这几个是**测试替身**：任务线程写、主线程读。用 `volatile` 是错的（不给原子性、
+ * 不给 happens-before），一律走 relaxed 原子——测试只要"读到完整的旧值或新值"。 */
+static int g_take_result = 123; /* 123 = 还没跑 */
+static int g_task_ran;
+static int g_exit_before;
+static int g_exit_after;
+
+static int g_get(const int *p) { return __atomic_load_n(p, __ATOMIC_RELAXED); }
+static void g_set(int *p, int v) { __atomic_store_n(p, v, __ATOMIC_RELAXED); }
 
 /* 进任务后先睡 10ms，确保持锁者已经把锁拿稳，再试 5ms。 */
 static void contender(void *arg)
@@ -76,22 +81,22 @@ static void contender(void *arg)
     (void)arg;
     const pf_ops_t *o = pf_host_fake_ops_get();
     o->sleep_ms(10);
-    g_take_result = o->mutex_take(g_mx, 5);
+    g_set(&g_take_result, o->mutex_take(g_mx, 5));
 }
 
 static void simple_task(void *arg)
 {
     (void)arg;
-    g_task_ran = 1;
+    g_set(&g_task_ran, 1);
 }
 
 static void exiting_task(void *arg)
 {
     (void)arg;
     const pf_ops_t *o = pf_host_fake_ops_get();
-    g_exit_before = 1;
+    g_set(&g_exit_before, 1);
     o->task_exit_current();
-    g_exit_after = 1; /* 契约：这行不应被执行 */
+    g_set(&g_exit_after, 1); /* 契约：这行不应被执行 */
 }
 
 /* ── A 段用例 ───────────────────────────────────────────────────── */
@@ -205,17 +210,17 @@ TT_CASE(mutex_timeout_is_relative)
     const pf_ops_t *o = pf_host_fake_ops_get();
     TT_ASSERT_INT(0, o->mutex_take(g_mx, 0));
 
-    g_take_result = 123;
+    g_set(&g_take_result, 123);
     pf_task_desc_t desc = { "contender", contender, NULL, 32768u };
     TT_ASSERT_NOT_NULL(o->task_create(&desc));
 
-    for (int i = 0; i < 40 && g_take_result == 123; i++) {
+    for (int i = 0; i < 40 && g_get(&g_take_result) == 123; i++) {
         o->sleep_ms(5);
     }
     o->mutex_give(g_mx);
 
-    TT_ASSERT_TRUE(g_take_result != 123); /* 跑完了 */
-    TT_ASSERT_INT(-1, g_take_result);     /* 相对超时：等 5ms 没拿到 */
+    TT_ASSERT_TRUE(g_get(&g_take_result) != 123); /* 跑完了 */
+    TT_ASSERT_INT(-1, g_get(&g_take_result)); /* 相对超时：等 5ms 没拿到 */
 }
 
 TT_CASE(mutex_reacquire_after_give)
@@ -242,31 +247,31 @@ TT_CASE(task_rejects_null_entry)
 TT_CASE(task_runs_entry)
 {
     const pf_ops_t *o = pf_host_fake_ops_get();
-    g_task_ran = 0;
+    g_set(&g_task_ran, 0);
     pf_task_desc_t desc = { "runner", simple_task, NULL, 32768u };
     TT_ASSERT_NOT_NULL(o->task_create(&desc));
 
-    for (int i = 0; i < 100 && !g_task_ran; i++) {
+    for (int i = 0; i < 100 && g_get(&g_task_ran) == 0; i++) {
         o->sleep_ms(5);
     }
-    TT_ASSERT_INT(1, g_task_ran);
+    TT_ASSERT_INT(1, g_get(&g_task_ran));
 }
 
 TT_CASE(task_exit_current_does_not_return)
 {
     const pf_ops_t *o = pf_host_fake_ops_get();
-    g_exit_before = 0;
-    g_exit_after = 0;
+    g_set(&g_exit_before, 0);
+    g_set(&g_exit_after, 0);
     pf_task_desc_t desc = { "exiter", exiting_task, NULL, 32768u };
     TT_ASSERT_NOT_NULL(o->task_create(&desc));
 
-    for (int i = 0; i < 100 && !g_exit_before; i++) {
+    for (int i = 0; i < 100 && g_get(&g_exit_before) == 0; i++) {
         o->sleep_ms(5);
     }
-    TT_ASSERT_INT(1, g_exit_before);
+    TT_ASSERT_INT(1, g_get(&g_exit_before));
 
     o->sleep_ms(30); /* 给"如果它返回了"留出执行完的时间 */
-    TT_ASSERT_INT(0, g_exit_after);
+    TT_ASSERT_INT(0, g_get(&g_exit_after));
 }
 
 int main(void)

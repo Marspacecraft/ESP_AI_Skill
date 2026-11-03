@@ -17,12 +17,18 @@ static uint32_t s_count;
 static int s_bound;
 static int s_initialized;
 
+/* 已经发出去的 id。**只增不减**：实例退役后 id 也不回收（见 D18）——
+ * 复用 id 会让"拿着旧 id 的代码"静默地操作到新实例上，那种 bug 夜里查不出来。 */
+static uint32_t s_used_ids[FW_REG_MAX_APPS];
+static uint32_t s_used_count;
+
 /** 失败出口：把注册表清回空的初态，再返回错误码。
  *  为什么每个失败点都要过这里：中途 return 会留下"已插入一半"的表，而调用方
  *  只会看到 `CM_ERR_INVALID`，没有人会想到去 `fw_reset()`。 */
 static cm_err_t fail_and_clear(cm_err_t rc)
 {
     s_count = 0u;
+    s_used_count = 0u;
     return rc;
 }
 
@@ -125,8 +131,46 @@ cm_err_t fw_init(const fw_manifest_t *manifests, uint32_t count)
         return fail_and_clear(CM_ERR_INVALID);
     }
 
+    /* 清单里的 id 从此归它们所有：后面 `fw_alloc_id()` 不会再发同一个号码。 */
+    s_used_count = s_count;
+    for (i = 0; i < s_count; i++) {
+        s_used_ids[i] = s_apps[i]->id;
+    }
+
     s_initialized = 1;
     return CM_OK;
+}
+
+static int id_used(uint32_t id)
+{
+    uint32_t i;
+
+    for (i = 0; i < s_used_count; i++) {
+        if (s_used_ids[i] == id) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+cm_err_t fw_alloc_id(uint32_t *out)
+{
+    uint32_t id;
+
+    if (out == NULL) {
+        return CM_ERR_INVALID;
+    }
+    if (s_used_count >= FW_REG_MAX_APPS) {
+        return CM_ERR_NOMEM; /* 253 个号码发完了：重启次数到顶，该查为什么会一直在重启 */
+    }
+    for (id = APP_ID_MIN; id <= APP_ID_MAX; id++) {
+        if (!id_used(id)) {
+            *out = id;
+            s_used_ids[s_used_count++] = id;
+            return CM_OK;
+        }
+    }
+    return CM_ERR_NOMEM;
 }
 
 uint32_t fw_app_count(void)
@@ -150,7 +194,9 @@ void fw_reset(void)
         s_apps[i] = NULL;
     }
     s_count = 0u;
+    s_used_count = 0u;
     s_ops = NULL;
     s_bound = 0;
     s_initialized = 0;
+    fw_boot_forget();
 }

@@ -23,17 +23,21 @@
 /* ── 用例共享状态 ─────────────────────────────────────────────── */
 static struct fw_app_ctx *g_ctx;
 static uint32_t g_cancel_at;          /* 第几次 sleep 之后注入取消；0 = 不注入 */
-static volatile int g_init_calls;
-static volatile int g_exit_calls;
-static volatile int g_after_delay;    /* 不该被执行的标记 */
-static volatile int g_exit_blocked;   /* exit() 里再调阻塞后是否返回了 */
-static volatile int g_done;           /* 正常跑完标记 */
+/* 任务线程写、主线程读：`volatile` 不构成同步，一律 relaxed 原子。 */
+static int g_init_calls;
+static int g_exit_calls;
+static int g_after_delay;    /* 不该被执行的标记 */
+static int g_exit_blocked;   /* exit() 里再调阻塞后是否返回了 */
+static int g_done;           /* 正常跑完标记 */
+
+static int g_get(const int *p) { return __atomic_load_n(p, __ATOMIC_RELAXED); }
+static void g_set(int *p, int v) { __atomic_store_n(p, v, __ATOMIC_RELAXED); }
 
 /* ── 回调 ─────────────────────────────────────────────────────── */
 static cm_err_t cb_init_ok(app_ctx_t *ctx)
 {
     (void)ctx;
-    g_init_calls++;
+    (void)__atomic_add_fetch(&g_init_calls, 1, __ATOMIC_RELAXED);
     return CM_OK;
 }
 
@@ -47,9 +51,9 @@ static cm_err_t cb_init_fail(app_ctx_t *ctx)
 static void cb_exit(app_ctx_t *ctx)
 {
     (void)ctx;
-    g_exit_calls++;
+    (void)__atomic_add_fetch(&g_exit_calls, 1, __ATOMIC_RELAXED);
     fw_delay_block(0u);
-    g_exit_blocked = 1;
+    g_set(&g_exit_blocked, 1);
 }
 
 /* 永不返回的主任务：每次 1000ms（= 50 片），被取消时应当停在片中间。 */
@@ -58,7 +62,7 @@ static void cb_task_forever(app_ctx_t *ctx)
     (void)ctx;
     for (;;) {
         fw_delay_block(1000u);
-        g_after_delay++;
+        (void)__atomic_add_fetch(&g_after_delay, 1, __ATOMIC_RELAXED);
     }
 }
 
@@ -71,7 +75,7 @@ static void cb_task_short(app_ctx_t *ctx)
 {
     (void)ctx;
     fw_delay_block(100u);
-    g_done = 1;
+    g_set(&g_done, 1);
 }
 
 /* ── 夹具 ─────────────────────────────────────────────────────── */
@@ -88,11 +92,11 @@ static int setup(const app_desc_t *d)
     clock_fake_install(pf_host_fake_ops_get());
     clock_fake_set_sleep_hook(NULL);
     g_cancel_at = 0u;
-    g_init_calls = 0;
-    g_exit_calls = 0;
-    g_after_delay = 0;
-    g_exit_blocked = 0;
-    g_done = 0;
+    g_set(&g_init_calls, 0);
+    g_set(&g_exit_calls, 0);
+    g_set(&g_after_delay, 0);
+    g_set(&g_exit_blocked, 0);
+    g_set(&g_done, 0);
     if (fw_platform_bind(clock_fake_ops()) != CM_OK) {
         return 0;
     }
@@ -125,12 +129,12 @@ static int wait_state(fw_app_state_e want, uint32_t timeout_ms)
     return 1;
 }
 
-static int wait_flag(volatile int *flag, uint32_t timeout_ms)
+static int wait_flag(const int *flag, uint32_t timeout_ms)
 {
     const pf_ops_t *real = pf_host_fake_ops_get();
     uint32_t t0 = real->clock_ms();
 
-    while (*flag == 0) {
+    while (g_get(flag) == 0) {
         if ((uint32_t)(real->clock_ms() - t0) > timeout_ms) {
             return 0;
         }
@@ -163,11 +167,11 @@ TT_CASE(cancel_stops_at_slice_boundary)
         TT_ASSERT_INT(FW_APP_STATE_STOPPED, fw_app_state(g_ctx));
     }
 
-    TT_ASSERT_INT(1, g_init_calls);
-    TT_ASSERT_INT(1, g_exit_calls);
+    TT_ASSERT_INT(1, g_get(&g_init_calls));
+    TT_ASSERT_INT(1, g_get(&g_exit_calls));
     TT_ASSERT_INT(1u, fw_app_exit_calls(g_ctx));
-    TT_ASSERT_INT(0, g_after_delay);
-    TT_ASSERT_INT(1, g_exit_blocked);
+    TT_ASSERT_INT(0, g_get(&g_after_delay));
+    TT_ASSERT_INT(1, g_get(&g_exit_blocked));
     TT_ASSERT_INT(0u, g_ctx->cancel);          /* ① 先清位 */
     TT_ASSERT_TRUE(clock_fake_max_slice_ms() <= FW_DELAY_SLICE_MS);
     teardown();
@@ -185,9 +189,9 @@ TT_CASE(double_cancel_still_one_exit)
         TT_ASSERT_INT(FW_APP_STATE_STOPPED, fw_app_state(g_ctx));
     }
 
-    TT_ASSERT_INT(1, g_exit_calls);
+    TT_ASSERT_INT(1, g_get(&g_exit_calls));
     TT_ASSERT_INT(1u, fw_app_exit_calls(g_ctx));
-    TT_ASSERT_INT(0, g_after_delay);
+    TT_ASSERT_INT(0, g_get(&g_after_delay));
     teardown();
 }
 
@@ -201,8 +205,8 @@ TT_CASE(init_failure_goes_failed_and_exits_once)
         TT_ASSERT_INT(FW_APP_STATE_FAILED, fw_app_state(g_ctx));
     }
 
-    TT_ASSERT_INT(1, g_exit_calls);
-    TT_ASSERT_INT(1, g_exit_blocked);          /* exit() 里的阻塞返回了 */
+    TT_ASSERT_INT(1, g_get(&g_exit_calls));
+    TT_ASSERT_INT(1, g_get(&g_exit_blocked));          /* exit() 里的阻塞返回了 */
     teardown();
 }
 
@@ -216,7 +220,7 @@ TT_CASE(task_return_goes_failed_and_exits_once)
         TT_ASSERT_INT(FW_APP_STATE_FAILED, fw_app_state(g_ctx));
     }
 
-    TT_ASSERT_INT(1, g_exit_calls);
+    TT_ASSERT_INT(1, g_get(&g_exit_calls));
     teardown();
 }
 
@@ -227,7 +231,7 @@ TT_CASE(short_delay_completes_without_cancel)
 
     TT_ASSERT_INT(CM_OK, fw_app_start(g_ctx));
     if (!wait_flag(&g_done, 2000u)) {
-        TT_ASSERT_INT(1, g_done);
+        TT_ASSERT_INT(1, g_get(&g_done));
     }
     if (!wait_state(FW_APP_STATE_FAILED, 2000u)) {
         TT_ASSERT_INT(FW_APP_STATE_FAILED, fw_app_state(g_ctx));

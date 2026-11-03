@@ -9,6 +9,17 @@
 | [`error-codes.md`](error-codes.md) | 每个 `cm_err_t` 谁产出、什么情况下、调用方该做什么；`CANCELED` 为什么是预留值 |
 | [`acceptance.md`](acceptance.md) | A1–A8 八条验收线：命令是什么、现在跑出什么、哪几条只能人审 |
 
+## 四份公开契约（`api/af_api/`）
+
+| 头 | 管什么 |
+|---|---|
+| `app.h` | App 的形状与使用面（三个回调、描述体、清单、`fw_delay_block`/`fw_alloc`/`fw_log`/心跳） |
+| `res.h` | 资源槽位（`res_acquire`）与配额（`fw_res_set_quota`） |
+| `evt.h` | 事件（`fw_event_post`/`wait`/`take`） |
+| `svc.h` | 服务注册表（`fw_svc_register`/`ready`）与提交型接口（`fw_svc_submit`） |
+
+`framework/include/fw_app.h` 只是把 `app.h` 带进来的转发头（D44）。
+
 ## 缺的那一份
 
 **"一个 App 怎么写"目前只有一份 80 行的样板与一段最短路径。** 见仓库根

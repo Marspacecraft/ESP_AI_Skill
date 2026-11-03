@@ -94,7 +94,7 @@ static void setup_registered(void)
     TT_ASSERT_INT(CM_OK, fw_init(&apps_manifest, 1u));
     g_owner = start_owner(20u);
     TT_ASSERT_NOT_NULL(g_owner);
-    TT_ASSERT_INT(CM_OK, fw_svc_register(SVC_FRAME, g_owner));
+    TT_ASSERT_INT(CM_OK, fw_svc_register_ctx(SVC_FRAME, g_owner));
 }
 
 TT_CASE(submit_to_unregistered_service_is_not_supported)

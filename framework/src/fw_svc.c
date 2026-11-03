@@ -27,7 +27,7 @@ static int find_slot(fw_svc_id_t id)
     uint32_t i;
 
     for (i = 0; i < FW_SVC_MAX; i++) {
-        if (s_svc_id[i] == id) {
+        if (__atomic_load_n(&s_svc_id[i], __ATOMIC_ACQUIRE) == id) {
             return (int)i;
         }
     }
@@ -39,14 +39,14 @@ static int free_slot(void)
     uint32_t i;
 
     for (i = 0; i < FW_SVC_MAX; i++) {
-        if (s_svc_id[i] == 0u) {
+        if (__atomic_load_n(&s_svc_id[i], __ATOMIC_ACQUIRE) == 0u) {
             return (int)i;
         }
     }
     return -1;
 }
 
-cm_err_t fw_svc_register(fw_svc_id_t id, struct fw_app_ctx *owner)
+cm_err_t fw_svc_register_ctx(fw_svc_id_t id, struct fw_app_ctx *owner)
 {
     int slot;
 
@@ -58,7 +58,7 @@ cm_err_t fw_svc_register(fw_svc_id_t id, struct fw_app_ctx *owner)
         if (s_svc_owner[slot] == NULL) {
             /* 表项还在、owner 已经死了（上次崩过 / 重启中）：**认领**它。
              * 这正是"重试"能成功的那条路。 */
-            s_svc_owner[slot] = owner;
+            __atomic_store_n(&s_svc_owner[slot], owner, __ATOMIC_RELAXED);
             return CM_OK;
         }
         return (s_svc_owner[slot] == owner) ? CM_ERR_STATE : CM_ERR_BUSY;
@@ -67,14 +67,14 @@ cm_err_t fw_svc_register(fw_svc_id_t id, struct fw_app_ctx *owner)
     if (slot < 0) {
         return CM_ERR_NOMEM; /* 表满：这是产品配置问题，不是暂时性失败 */
     }
-    s_svc_owner[slot] = owner;
+    __atomic_store_n(&s_svc_owner[slot], owner, __ATOMIC_RELAXED);
     /* id 最后写：读的一方先看到 owner 非空、再看到 id，顺序反过来会读到
      * "id 有了但 owner 还是 NULL"的半成品表项。 */
     __atomic_store_n(&s_svc_id[slot], id, __ATOMIC_RELEASE);
     return CM_OK;
 }
 
-cm_err_t fw_svc_unregister(fw_svc_id_t id, struct fw_app_ctx *owner)
+cm_err_t fw_svc_unregister_ctx(fw_svc_id_t id, struct fw_app_ctx *owner)
 {
     int slot = find_slot(id);
 
@@ -84,11 +84,12 @@ cm_err_t fw_svc_unregister(fw_svc_id_t id, struct fw_app_ctx *owner)
     if (slot < 0) {
         return CM_ERR_NOT_SUPPORTED;
     }
-    if (owner == NULL || s_svc_owner[slot] != owner) {
+    if (owner == NULL ||
+        __atomic_load_n(&s_svc_owner[slot], __ATOMIC_ACQUIRE) != owner) {
         return CM_ERR_STATE;
     }
     __atomic_store_n(&s_svc_id[slot], (fw_svc_id_t)0u, __ATOMIC_RELEASE);
-    s_svc_owner[slot] = NULL;
+    __atomic_store_n(&s_svc_owner[slot], NULL, __ATOMIC_RELAXED);
     return CM_OK;
 }
 
@@ -100,7 +101,8 @@ struct fw_app_ctx *fw_svc_owner(fw_svc_id_t id)
         return NULL;
     }
     slot = find_slot(id);
-    return (slot < 0) ? NULL : s_svc_owner[slot];
+    return (slot < 0) ? NULL
+                      : __atomic_load_n(&s_svc_owner[slot], __ATOMIC_ACQUIRE);
 }
 
 cm_err_t fw_svc_ready(fw_svc_id_t id)
@@ -136,8 +138,8 @@ void fw_svc_drop_owner(struct fw_app_ctx *owner)
      * （NOT_SUPPORTED，重试一万次也没用）。两者混成一个码，调用方就只剩放弃。
      * 上下文即将被管理器释放，所以 owner 指针必须清掉——留着就是野指针。 */
     for (i = 0; i < FW_SVC_MAX; i++) {
-        if (s_svc_owner[i] == owner) {
-            s_svc_owner[i] = NULL;
+        if (__atomic_load_n(&s_svc_owner[i], __ATOMIC_ACQUIRE) == owner) {
+            __atomic_store_n(&s_svc_owner[i], NULL, __ATOMIC_RELAXED);
         }
     }
 }
@@ -152,4 +154,30 @@ void fw_svc_forget(void)
         __atomic_store_n(&s_svc_id[i], (fw_svc_id_t)0u, __ATOMIC_RELEASE);
         s_svc_owner[i] = NULL;
     }
+}
+
+/* ── 公开面（D44）：owner 一律取"当前 App" ─────────────────────────────
+ *
+ * 内部实现要显式传 owner，是因为测试与框架自己需要在别人的上下文里注册/注销
+ * （例如验证"别人的 owner 抢不走我的表项"）。App 永远只为自己注册，所以公开面
+ * 不给 owner 参数——少一个能被传错的东西。
+ */
+cm_err_t fw_svc_register(fw_svc_id_t id)
+{
+    struct fw_app_ctx *c = fw_current_ctx();
+
+    if (c == NULL) {
+        return CM_ERR_STATE; /* 不在 App 任务里：没有"当前 App"可注册 */
+    }
+    return fw_svc_register_ctx(id, c);
+}
+
+cm_err_t fw_svc_unregister(fw_svc_id_t id)
+{
+    struct fw_app_ctx *c = fw_current_ctx();
+
+    if (c == NULL) {
+        return CM_ERR_STATE;
+    }
+    return fw_svc_unregister_ctx(id, c);
 }

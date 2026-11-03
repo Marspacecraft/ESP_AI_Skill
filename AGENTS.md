@@ -6,8 +6,9 @@
 
 **现在不是什么**：不是"ESP32 全系通用框架"的完成态。v1 只有九项基础设施
 （内存 / 时钟 / 睡眠 / 互斥 / 建任务 / 退任务 + 表版本 + 能力位 + 日志钩子），
-**没有显示屏、输入、音频、网络、存储、电源的能力头**——`api/af_api/` 里目前只有
-`app.h`。看到文档提到 `disp_commit` 之类，那是设计稿，不是可调用的东西。
+**没有显示屏、输入、音频、网络、存储、电源的能力头**——`api/af_api/` 里只有
+`app.h`（生命周期 + 使用面）、`res.h`（资源/配额）、`evt.h`（事件）、`svc.h`（服务）。
+看到文档提到 `disp_commit` 之类，那是设计稿，不是可调用的东西。
 
 ---
 
@@ -17,18 +18,18 @@
 ./build.sh run     # 唯一构建入口：编译全部用例 + 跑三道门禁 + 跑全部 host 测试
 ```
 
-当前基线：**147 条 host 用例全绿** + `check_entry_unique` / `link 面` / `纯 C 边界` 三道门禁 PASS。
+当前基线：**150 条 host 用例全绿** + `check_entry_unique` / `link 面` / `纯 C 边界` 三道门禁 PASS。
 真机：两块板（ESP32-C3 `ai-passport`、ESP32-S3 devkit）各跑同一份 33 条用例，`DEVICE_DONE rc=0`。
 
 | 想知道 | 去哪 |
 |---|---|
 | 一个 App 最短能多短 | `apps/demo/app_demo.c`（80 行，含注释） |
-| App 能调什么 | `api/af_api/app.h` → `framework/include/fw_app.h` |
+| App 能调什么 | `api/af_api/app.h`（生命周期 + 使用面）、`res.h`、`evt.h`、`svc.h` |
 | 板子要实现什么 | `platform/port/pf_ops.h`（九项，每项一段注释，**这是接板唯一必读**） |
 | 契约为什么这么定 | `docs/pf-ops-decision.md` |
 | 错误码谁产出 | `docs/error-codes.md` |
 | 验收线怎么算过 | `docs/acceptance.md`（A1–A8） |
-| 决策与施工记录 | `实施步骤.md`（§7 决策 D1–D43，§8 推进记录） |
+| 决策与施工记录 | `实施步骤.md`（§7 决策 D1–D46，§8 推进记录） |
 
 ---
 
@@ -95,6 +96,17 @@ python3 tools/check_workspace_policy.py --as 2 apps/demo/app_demo.c   # ALLOW/DE
 **配额**：`fw_res_set_quota(ctx, bytes)`（0 = 不限）。超了是 `CM_ERR_QUOTA`（查你自己漏没漏释放），
 不是 `CM_ERR_NOMEM`（那是整机没了）。
 
+**把它做成服务**（别的 App 要按名字找你，不能链接你）：
+
+```c
+static cm_err_t init(app_ctx_t *ctx) { (void)ctx; return fw_svc_register(SVC_STORAGE); }
+static void exit_(app_ctx_t *ctx)    { (void)ctx; (void)fw_svc_unregister(SVC_STORAGE); }
+```
+
+调用方先 `fw_svc_ready(id)`，拿 `CM_OK` 再调；`CM_ERR_UNAVAILABLE` = 对方崩了/在重启，可以重试；
+`CM_ERR_NOT_SUPPORTED` = 这块产品没有这个能力，重试没意义。跨任务传数据用 `fw_svc_submit()`
+（**提交即拷贝**，返回后你的缓冲区就能重用；表满返回 `CM_ERR_BUSY`，不是 `NOMEM`）。
+
 ---
 
 ## 5. 接一块板
@@ -135,6 +147,7 @@ Unverified:   还有什么没验证、为什么
 | 串口只剩 `task_wdt: Task watchdog got triggered`，一条 PASS 都没有 | 高优先级任务 100% 占 CPU，把测试主任务饿死 | 观测者优先级不能被压过；"纯死循环"的真实表现就是"整机无法被观测" |
 | 数据竞争（TSan 报一堆） | 跨任务字段用 `volatile` | 一律 `__atomic_*`；状态位变终态 ≠ 任务已退出 |
 | 提交表满返回 `NOMEM` | 语义错，会让人去查不存在的内存泄漏 | 是 `CM_ERR_BUSY`（"等会儿再来"） |
+| `assert failed: xTaskCreatePinnedToCore ... xCoreID < 1`，然后复位 | 把任务写死绑到 core 1，而 ESP32-C3 是**单核** | 核号按 `portNUM_PROCESSORS` 自适应；host 上没有核的概念，所以这条**只有单核板能发现** |
 
 ---
 

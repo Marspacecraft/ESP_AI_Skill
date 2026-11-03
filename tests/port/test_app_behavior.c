@@ -43,7 +43,8 @@ static int g_ev_n;
 static int g_done_calls;
 static int g_done_superseded;
 static uint32_t g_done_key;
-static uint8_t g_svc_id;
+#define SVC_TEST_ID 11u /* 编译期常量：跨任务共享的东西不设可变的 */
+static const uint8_t g_svc_id = SVC_TEST_ID;
 
 static int obs_get(const int *p) { return __atomic_load_n(p, __ATOMIC_ACQUIRE); }
 static void obs_add(int *p) { (void)__atomic_add_fetch(p, 1, __ATOMIC_RELAXED); }
@@ -100,8 +101,7 @@ static cm_err_t svc_init(app_ctx_t *ctx)
 {
     (void)ctx;
     obs_add(&g_init_calls);
-    g_svc_id = 11u;
-    return fw_svc_register(g_svc_id, fw_current_ctx());
+    return fw_svc_register_ctx(SVC_TEST_ID, fw_current_ctx());
 }
 
 static void svc_task(app_ctx_t *ctx) { (void)ctx; for (;;) { obs_add(&g_ticks); fw_delay_block(20u); } }

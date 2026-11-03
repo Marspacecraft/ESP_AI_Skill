@@ -98,7 +98,7 @@ TT_CASE(registered_but_dead_service_is_unavailable)
     setup();
     g_owner = start_owner(9u);
     TT_ASSERT_NOT_NULL(g_owner);
-    TT_ASSERT_INT(CM_OK, fw_svc_register(SVC_STORAGE, g_owner));
+    TT_ASSERT_INT(CM_OK, fw_svc_register_ctx(SVC_STORAGE, g_owner));
     TT_ASSERT_INT(CM_OK, fw_svc_ready(SVC_STORAGE)); /* 先确认它本来是好的 */
 
     /* 停掉 owner：服务还在表里，但不该再"可用" */
@@ -119,7 +119,7 @@ TT_CASE(owner_exit_leaves_an_unavailable_marker)
     setup();
     g_owner = start_owner(9u);
     TT_ASSERT_NOT_NULL(g_owner);
-    TT_ASSERT_INT(CM_OK, fw_svc_register(SVC_STORAGE, g_owner));
+    TT_ASSERT_INT(CM_OK, fw_svc_register_ctx(SVC_STORAGE, g_owner));
     /* 走退出路径：表项要留着（UNAVAILABLE），owner 指针必须清掉（不能悬垂） */
     fw_app_request_cancel(g_owner);
     for (int i = 0; i < 400; i++) {
@@ -141,7 +141,7 @@ TT_CASE(restarted_owner_can_claim_the_slot_back)
     setup();
     g_owner = start_owner(9u);
     TT_ASSERT_NOT_NULL(g_owner);
-    TT_ASSERT_INT(CM_OK, fw_svc_register(SVC_STORAGE, g_owner));
+    TT_ASSERT_INT(CM_OK, fw_svc_register_ctx(SVC_STORAGE, g_owner));
     fw_app_request_cancel(g_owner);
     for (int i = 0; i < 400; i++) {
         if (fw_app_state(g_owner) == FW_APP_STATE_STOPPED) {
@@ -153,7 +153,7 @@ TT_CASE(restarted_owner_can_claim_the_slot_back)
 
     second = start_owner(10u);
     TT_ASSERT_NOT_NULL(second);
-    TT_ASSERT_INT(CM_OK, fw_svc_register(SVC_STORAGE, second)); /* 认领 */
+    TT_ASSERT_INT(CM_OK, fw_svc_register_ctx(SVC_STORAGE, second)); /* 认领 */
     TT_ASSERT_INT(CM_OK, fw_svc_ready(SVC_STORAGE));
     TT_ASSERT_TRUE(fw_svc_owner(SVC_STORAGE) == second);
     stop_all();
@@ -164,8 +164,8 @@ TT_CASE(double_register_is_rejected_not_idempotent)
     setup();
     g_owner = start_owner(9u);
     TT_ASSERT_NOT_NULL(g_owner);
-    TT_ASSERT_INT(CM_OK, fw_svc_register(SVC_STORAGE, g_owner));
-    TT_ASSERT_INT(CM_ERR_STATE, fw_svc_register(SVC_STORAGE, g_owner)); /* 同一 owner */
+    TT_ASSERT_INT(CM_OK, fw_svc_register_ctx(SVC_STORAGE, g_owner));
+    TT_ASSERT_INT(CM_ERR_STATE, fw_svc_register_ctx(SVC_STORAGE, g_owner)); /* 同一 owner */
     stop_all();
 }
 
@@ -179,10 +179,10 @@ TT_CASE(other_owner_cannot_steal_or_drop)
     b = start_owner(10u);
     TT_ASSERT_NOT_NULL(a);
     TT_ASSERT_NOT_NULL(b);
-    TT_ASSERT_INT(CM_OK, fw_svc_register(SVC_STORAGE, a));
-    TT_ASSERT_INT(CM_ERR_BUSY, fw_svc_register(SVC_STORAGE, b));
-    TT_ASSERT_INT(CM_ERR_STATE, fw_svc_unregister(SVC_STORAGE, b));
-    TT_ASSERT_INT(CM_OK, fw_svc_unregister(SVC_STORAGE, a));
+    TT_ASSERT_INT(CM_OK, fw_svc_register_ctx(SVC_STORAGE, a));
+    TT_ASSERT_INT(CM_ERR_BUSY, fw_svc_register_ctx(SVC_STORAGE, b));
+    TT_ASSERT_INT(CM_ERR_STATE, fw_svc_unregister_ctx(SVC_STORAGE, b));
+    TT_ASSERT_INT(CM_OK, fw_svc_unregister_ctx(SVC_STORAGE, a));
     TT_ASSERT_INT(CM_ERR_NOT_SUPPORTED, fw_svc_ready(SVC_STORAGE));
     stop_all();
 }
@@ -194,11 +194,11 @@ TT_CASE(bad_arguments_are_rejected)
     setup();
     a = start_owner(9u);
     TT_ASSERT_NOT_NULL(a);
-    TT_ASSERT_INT(CM_ERR_INVALID, fw_svc_register(0u, a));            /* id 0 永远无效 */
-    TT_ASSERT_INT(CM_ERR_INVALID, fw_svc_register((fw_svc_id_t)FW_SVC_MAX, a));
-    TT_ASSERT_INT(CM_ERR_INVALID, fw_svc_register(SVC_STORAGE, NULL));
+    TT_ASSERT_INT(CM_ERR_INVALID, fw_svc_register_ctx(0u, a));            /* id 0 永远无效 */
+    TT_ASSERT_INT(CM_ERR_INVALID, fw_svc_register_ctx((fw_svc_id_t)FW_SVC_MAX, a));
+    TT_ASSERT_INT(CM_ERR_INVALID, fw_svc_register_ctx(SVC_STORAGE, NULL));
     TT_ASSERT_INT(CM_ERR_INVALID, fw_svc_ready(0u));
-    TT_ASSERT_INT(CM_ERR_NOT_SUPPORTED, fw_svc_unregister(SVC_DISPLAY, a));
+    TT_ASSERT_INT(CM_ERR_NOT_SUPPORTED, fw_svc_unregister_ctx(SVC_DISPLAY, a));
     stop_all();
 }
 

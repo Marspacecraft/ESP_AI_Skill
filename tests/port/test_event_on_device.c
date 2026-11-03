@@ -292,6 +292,10 @@ TT_CASE(two_producers_one_topic_measures_the_loss)
     int ok;
     int taken;
     int lost;
+#if !defined(ESP_PLATFORM)
+    pthread_t t1;
+    pthread_t t2;
+#endif
 
     fw_reset();
     g_ok_posts = 0;
@@ -308,21 +312,27 @@ TT_CASE(two_producers_one_topic_measures_the_loss)
 
         /* 优先级取 1（与 main_task 同档）：比它高就会把"边产边取"的消费者饿死，
          * 那测出来的就不是丢帧而是观测不到（D40 的同一课）。 */
+        /* 绑核不能写死：C3 是**单核**，`xTaskCreatePinnedToCore(..., 1)` 会当场断言
+         * ——`assert failed: xTaskCreatePinnedToCore ... xCoreID < 1`
+         * （真机跑出来才发现；host 上没有这个参数，所以 host 永远绿）。
+         * 双核板上让两个生产者分居两核，单核板上只能同核：前者测跨核竞争，
+         * 后者测同核抢占，两者都是真实的丢帧来源。 */
+        const int cores = (int)portNUM_PROCESSORS;
+        const int c1_core = (cores > 1) ? 1 : 0;
+
         TT_ASSERT_INT(pdPASS,
                       xTaskCreatePinnedToCore(producer_task, "prod0", 4096,
                                               (void *)(uintptr_t)P_MAIN, 1, &h1, 0));
         TT_ASSERT_INT(pdPASS,
                       xTaskCreatePinnedToCore(producer_task, "prod1", 4096,
-                                              (void *)(uintptr_t)P_ALT, 1, &h2, 1));
+                                              (void *)(uintptr_t)P_ALT, 1, &h2, c1_core));
     }
 #else
     {
-        pthread_t t1;
-        pthread_t t2;
-
         TT_ASSERT_INT(0, pthread_create(&t1, NULL, producer_thread, (void *)(uintptr_t)P_MAIN));
         TT_ASSERT_INT(0, pthread_create(&t2, NULL, producer_thread, (void *)(uintptr_t)P_ALT));
-        /* host 上不 join：生产者与消费者同时跑，才有竞争。 */
+        /* 生产与消费**同时**跑才有竞争；join 留到收尾——不 join 的线程
+         * 在 `fw_reset()` 之后还在写表，TSan 会同时报 data race 与 thread leak。 */
     }
 #endif
 
@@ -335,6 +345,10 @@ TT_CASE(two_producers_one_topic_measures_the_loss)
             break;
         }
     }
+#if !defined(ESP_PLATFORM)
+    pthread_join(t1, NULL);
+    pthread_join(t2, NULL); /* 必须先等它们真的退出，再碰表 */
+#endif
     /* 收尾：把生产者退出前落在队列里的取干净。 */
     while (fw_event_take(T_LEAK, out, sizeof out, &len) == CM_OK) {
         flag_add(&g_taken);

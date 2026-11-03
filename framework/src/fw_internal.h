@@ -172,7 +172,7 @@ typedef uint8_t fw_svc_id_t;
  *                   NOT_SUPPORTED（该放弃）。所以 `exit()` 里**不需要**调
  *                   `fw_svc_unregister()`；想彻底摘掉用 `fw_svc_unregister()`。
  */
-cm_err_t fw_svc_register(fw_svc_id_t id, struct fw_app_ctx *owner);
+cm_err_t fw_svc_register_ctx(fw_svc_id_t id, struct fw_app_ctx *owner);
 
 /** 摘掉一个服务。
  *
@@ -181,7 +181,7 @@ cm_err_t fw_svc_register(fw_svc_id_t id, struct fw_app_ctx *owner);
  * @return `CM_OK`；未注册 → `CM_ERR_NOT_SUPPORTED`；owner 不符 → `CM_ERR_STATE`。
  *         线程与中断：App 任务里调；ISR 禁止。非阻塞。
  */
-cm_err_t fw_svc_unregister(fw_svc_id_t id, struct fw_app_ctx *owner);
+cm_err_t fw_svc_unregister_ctx(fw_svc_id_t id, struct fw_app_ctx *owner);
 
 /** 谁在提供这个服务。
  *

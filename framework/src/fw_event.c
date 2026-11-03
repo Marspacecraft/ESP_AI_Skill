@@ -173,10 +173,13 @@ cm_err_t fw_event_wait(evt_topic_t topic, void *buf, size_t cap_bytes, size_t *o
 
 void fw_event_forget(void)
 {
+    /* 全部走原子写：生产者可能还在提交（TSan 抓过一次：
+     * `fw_event_forget` 的普通写撞上 `event_put` 的原子写）。`fw_reset()` 的
+     * 调用约定是"先停生产者再清表"，但检查器不该依赖调用方守规矩。 */
     for (uint32_t i = 0; i < FW_EVENT_TOPICS; i++) {
-        s_topics[i].head = 0u;
-        s_topics[i].tail = 0u;
-        s_topics[i].dropped = 0u;
+        __atomic_store_n(&s_topics[i].head, 0u, __ATOMIC_RELEASE);
+        __atomic_store_n(&s_topics[i].tail, 0u, __ATOMIC_RELEASE);
+        __atomic_store_n(&s_topics[i].dropped, 0u, __ATOMIC_RELEASE);
         __atomic_store_n(&s_topics[i].payload, (size_t)0, __ATOMIC_RELEASE);
     }
 }

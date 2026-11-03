@@ -92,7 +92,8 @@ cm_err_t fw_event_post_isr(evt_topic_t topic, const void *data);
  * @param out_len  可为 NULL；实际写出的字节数。
  * @param timeout_ms 最多等多久；0 = 只试一次（等价 `fw_event_take`）。
  * @return `CM_OK`；`CM_ERR_NOT_SUPPORTED` 主题没声明；`CM_ERR_INVALID` 缓冲太小；
- *         `CM_ERR_TIMEOUT` 等到超时也没有事件；`CM_ERR_CANCELED` 等待期间 App 被停止。
+ *         `CM_ERR_TIMEOUT` 等到超时也没有事件。**命中取消位时不返回**（直接走退出路径，
+ *         与 `fw_delay_block()` 同一条规矩）；`CM_ERR_CANCELED` 是预留值，本函数不产出。
  *         线程与中断：**只能在 App 任务里调**（需要取消位与切片等待）；ISR 禁止。
  *         注意事项：**这是伪阻塞点**——等待期间每隔 ≤20ms 检查一次取消位，
  *         命中后会走退出路径且**不返回**。所以 `fw_event_wait()` 之后的代码

@@ -12,7 +12,16 @@ description: 在 ESP AI Skill 仓库里改框架（framework/ 下的启动序列
 
 ---
 
-## 1. 动手前先确认你写得了
+## 1. 动手前：交清单，等批准
+
+清单协议在 [`AGENTS.md`](../../AGENTS.md) §0。本角色**必须多写两条**：
+
+- **动的是公开契约还是内部实现**：改 `api/af_api/*.h` 会影响所有写 App 的人，要说清"谁会被牵连"；
+- **要不要同步改别处**：`tests/port/` 的设备套件、`docs/build-and-usage.md`、`实施步骤.md` 的决策号。
+
+批准了才动手——**任务描述不是批准**。
+
+## 1.1 确认你写得了
 
 ```bash
 python3 tools/check_workspace_policy.py --as 3 framework/src/fw_ctx.c
@@ -32,7 +41,7 @@ python3 tools/check_workspace_policy.py --as 3 apps/demo/app_demo.c
 | 位置 | 谁能看 | 放什么 |
 |---|---|---|
 | `api/af_api/*.h` | App、框架、平台 | **公共契约**（`app_ctx`、`app_desc_t`、`fw_delay_block`、`res_*`、`svc_*`、`evt_*`）。定义在 `common/src` 与 `framework/src` 里实现 |
-| `framework/include/` | 目前只有一个转发头 `fw_app.h` | App 调框架符号的入口；**不要往这里加新契约**（D44：契约住 `api/af_api/`） |
+| `framework/include/` | `fw_app.h`（转发头）+ `fw_embed.h`（嵌入方启动点，D36） | `fw_app.h` 只 include `api/af_api/app.h`；`fw_embed.h` 给产品自己的 `app_main` 用，不是 App 的入口。**不要往这里加新契约**（D44） |
 | `framework/src/fw_internal.h` | 只有框架自己与 host 测试 | 内部面：`fw_init`、`fw_boot`、`fw_live_add`、`fw_run_exit`、`fw_current_ctx`。**管理器面（`fw_alloc_id`、`fw_app_ctx_new*`、`fw_app_start`、`fw_app_state`、`fw_live_*`）已经公开到 `api/af_api/mgr.h`**（D52），不要搬回这里 |
 
 **判据**：App 需要的符号 → `api/af_api/`；只有框架自己用的 → `fw_internal.h`。放错方向会立刻
@@ -70,7 +79,7 @@ python3 tools/check_workspace_policy.py --as 3 apps/demo/app_demo.c
 
 ```bash
 ./build.sh run                                          # 179 条 + 五道门禁
-CC="cc -fsanitize=thread -g" ./build.sh run             # 竞争（会慢到 ~70s，因为有个纯死循环样本）
+CC="cc -fsanitize=thread -g" ./build.sh run             # 竞争（含纯死循环样本时会慢一个量级，实测 ~70s）
 CC="cc -fsanitize=address -fno-omit-frame-pointer -g" ./build.sh run
 ```
 
@@ -102,5 +111,10 @@ CC="cc -fsanitize=address -fno-omit-frame-pointer -g" ./build.sh run
 | 伪阻塞、取消位、退出五步的来龙去脉 | `docs/build-and-usage.md` §6 + `实施步骤.md` §7（D15/D16/D20） |
 | 九项平台契约（你要调它，不能改它） | `platform/port/pf_ops.h` |
 | 公共契约的权威定义 | `api/af_api/*.h` |
+| **命名 / 注释 / 排版 / 内存怎么算对** | [`docs/coding-style.md`](../../docs/coding-style.md)（§12 是提交前自查表） |
 | 全局规矩、四行交付、停手条件 | [`AGENTS.md`](../../AGENTS.md) |
 | 只有真机才暴露的坑 | `AGENTS.md` §7 |
+
+---
+
+做完按 [`AGENTS.md`](../../AGENTS.md) §6 交：四行状态 + **实现了什么**（对照清单逐条）+ **需要用户处理什么**（提交 / 授权 / 改考卷 / 拍板）。

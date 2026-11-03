@@ -13,7 +13,18 @@ description: 在 ESP AI Skill 仓库里新建或修改一个业务 App 时使用
 
 ---
 
-## 1. 动手前先确认你写得了
+## 1. 动手前：交清单，等批准
+
+清单协议在 [`AGENTS.md`](../../AGENTS.md) §0（路径 / tag / 为什么 / 行数 / 怎么验）。
+本角色**必须多写三行**，漏了会被打回：
+
+- 除了 `apps/<你的 App>/*.c`，还要**追加** `apps/app_manifest.c` 里一行——说明只加不改；
+- `id` 取哪个号（`fw_alloc_id()` 还是手工挑），和现有清单里的 id 不撞；
+- 每个 App 主任务的 `stack_bytes`（不得低于 `APP_STACK_MIN`）。
+
+批准了才动手——**任务描述不是批准**。
+
+## 1.1 确认你写得了
 
 ```bash
 python3 tools/check_workspace_policy.py --as 2 apps/demo/app_demo.c
@@ -36,7 +47,8 @@ python3 tools/check_workspace_policy.py --as 2 framework/src/fw_ctx.c
 `AGENTS.md`。要改它们 = 换身份，先报告。
 
 App 能 include 的只有六个头：`api/af_api/{app,res,evt,svc,cap,uart}.h`（使用面）与 `mgr.h`（控制面，
-只有管理器角色要用）。看到别的名字就当它不存在。
+只有管理器角色要用）。`framework/include/` 也在 link 集合里（`apps/app_manifest.h` 要它），
+但那里的 `fw_embed.h` 是给产品自己的 `app_main` 用的——**App 不要调**。看到别的名字就当它不存在。
 
 ---
 
@@ -45,6 +57,10 @@ App 能 include 的只有六个头：`api/af_api/{app,res,evt,svc,cap,uart}.h`�
 复制 `apps/demo/`（78 行，含注释）的形状：
 
 ```c
+#include "api/af_api/app.h"
+
+#define MY_ID 3u   /* 2..254，且清单里没出现过 */
+
 static cm_err_t my_init(app_ctx_t *ctx) { (void)ctx; return CM_OK; }
 static void     my_exit(app_ctx_t *ctx) { (void)ctx; /* 清理只写这里 */ }
 static void     my_task(app_ctx_t *ctx)
@@ -107,8 +123,8 @@ const app_desc_t my_desc = {
   `fw_app_request_cancel()` 停 → 终态后 `fw_app_ctx_free()` 释放。
   两个容易记错的点：**所有 `fw_app_start()` 拉起的实例都进活实例表**（D53，停掉的也留着，
   直到摘表或释放——释放会自动摘表）；`fw_app_start()` 返回时状态还是 `INIT`，要等 `RUNNING` 得自己轮询。
-- **没有任何能力头**：显示、输入、音频、存储、网络、电源都还没有。别照着旧文档写
-  `disp_commit` —— 它不存在。
+- **只有串口一项能力**（`api/af_api/uart.h`）；显示、输入、音频、存储、网络、电源都还没有。
+  别照着旧文档写 `disp_commit` —— 它不存在。
 - 纯死循环框架发现不了也停不掉：那是设计边界，不是 bug。
 
 ---
@@ -123,5 +139,10 @@ const app_desc_t my_desc = {
 | 拉起/停止/回收别的 App（管理器） | `api/af_api/mgr.h` |
 | 事件 | `api/af_api/evt.h` |
 | 最短样板 | `apps/demo/app_demo.c`（78 行） |
+| **命名 / 注释 / 排版 / 内存怎么算对** | [`docs/coding-style.md`](../../docs/coding-style.md)（§12 是提交前自查表） |
 | 全局规矩、四行交付、停手条件 | [`AGENTS.md`](../../AGENTS.md) |
 | 命令、失败速查 | [`docs/build-and-usage.md`](../../docs/build-and-usage.md) §6/§10 |
+
+---
+
+做完按 [`AGENTS.md`](../../AGENTS.md) §6 交：四行状态 + **实现了什么**（对照清单逐条）+ **需要用户处理什么**（提交 / 授权 / 改考卷 / 拍板）。

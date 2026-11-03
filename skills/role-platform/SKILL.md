@@ -13,7 +13,19 @@ description: 在 ESP AI Skill 仓库里把一块新板接进来、实现或修�
 
 ---
 
-## 1. 动手前先确认你写得了
+## 1. 动手前：交清单，等批准
+
+清单协议在 [`AGENTS.md`](../../AGENTS.md) §0。接板的清单里有**两行只有人能改**，必须单列出来并说明
+"需要你批准后由你改（或授权我改）"：
+
+- `policy.txt` 的 `role 4` 加 `platform/<你的板>/`；
+- `build.sh` 的 `find ... ! -path 'platform/<你的板>/*'`（IDF 端口 include `freertos/`，host 编不过）。
+
+再加一行：这块板的 `README.md` 要记实测规格（芯片、Flash、PSRAM、控制台、烧录口、引脚）。
+
+批准了才动手——**任务描述不是批准**。
+
+## 1.1 确认你写得了
 
 ```bash
 python3 tools/check_workspace_policy.py --as 4 platform/esp32s3-devkit/pf_espidf.c
@@ -48,7 +60,7 @@ python3 tools/check_workspace_policy.py --as 4 framework/src/fw_ctx.c
 | `task_create` | `stack_bytes < PF_TASK_MIN_STACK` **返回 NULL**；栈由平台管 | 自动抬栈（App 的预算就失效了） |
 | `task_exit_current` | **不返回** | 之后还有清理代码（执行不到） |
 
-`caps()` 返回能力位：**没实现就返回 0**，别报"有"。报了的位必须真的有接口可调——16 位以上保留位读 0。
+`caps()` 返回能力位：**没实现就返回 0**，别报"有"。报了的位必须真的有接口可调——位 10–31 是保留区，必须读 0。
 
 ---
 
@@ -69,7 +81,7 @@ python3 tools/check_workspace_policy.py --as 4 framework/src/fw_ctx.c
 
 1. `platform/<板>/pf_espidf.c` + `.h`（只声明 `pf_platform_ops()`）+ `README.md`（实测规格 + 与别的板差别）。
 2. **把九项照抄最接近的那块板，不抽公共层**（D42：板间差别恰是最易漂移处；第三块 IDF 板再议）。
-3. 单测：`./build/test_pf_conformance`（host，14 条）。这份文件 host 与真机**同一份**。
+3. 单测：`./build/test_pf_conformance`（host **17** 条；同一份文件在真机上跑 **14** 条，差的 3 条是 host-only 语义）。
 4. 真机：
    ```bash
    source ~/.espressif/tools/activate_idf_v5.5.3.sh    # export.sh 会因 python env 缺失失败
@@ -115,5 +127,10 @@ python3 tools/check_workspace_policy.py --as 4 framework/src/fw_ctx.c
 | 九项的函数原型与逐项语义 | `platform/port/pf_ops.h`（**权威**） |
 | 为什么没有 `destroy`/`realloc`/优先级 | `docs/pf-ops-decision.md` §13（被否决的方案） |
 | 两份参考实现 | `platform/host-fake/pf_host_fake.c`（pthread）、`platform/ai-passport-c3/pf_espidf.c`（FreeRTOS） |
+| **命名 / 注释 / 排版 / 内存怎么算对** | [`docs/coding-style.md`](../../docs/coding-style.md)（§12 是提交前自查表） |
 | 全局规矩、只有真机才暴露的坑 | [`AGENTS.md`](../../AGENTS.md) §7 |
 | 命令细节、失败速查 | [`docs/build-and-usage.md`](../../docs/build-and-usage.md) §7/§10 |
+
+---
+
+做完按 [`AGENTS.md`](../../AGENTS.md) §6 交：四行状态 + **实现了什么**（对照清单逐条）+ **需要用户处理什么**（提交 / 授权 / 改考卷 / 拍板）。

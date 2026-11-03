@@ -1,6 +1,6 @@
 ---
 name: role-api
-description: 在 ESP AI Skill 仓库里定义或修改公共契约时使用——动 api/af_api/*.h、common/（cm_types、cm_atomic）、platform/port/、加错误码、加能力位与能力目录、改 tests/tinytest.h 或 tests/support、写 docs/。用户说"加个能力""公开这个接口""错误码怎么分""定义契约""改 policy 语义""写文档"时先读这份。
+description: 在 ESP AI Skill 仓库里定义或修改公共契约时使用——动 api/af_api/*.h、common/（cm_types、cm_atomic）、platform/port/、加错误码、加能力位与能力目录、改 tests/tinytest.h 或 tests/support、写 docs/。用户说"加个能力""公开这个接口""错误码怎么分""定义契约""该不该动 policy 语义""写文档"时先读这份。
 ---
 
 # 角色 · 接口层（tag 5）
@@ -15,7 +15,20 @@ description: 在 ESP AI Skill 仓库里定义或修改公共契约时使用—�
 
 ---
 
-## 1. 动手前先确认你写得了
+## 1. 动手前：交清单，等批准
+
+清单协议在 [`AGENTS.md`](../../AGENTS.md) §0。本角色加一个公开符号会牵动五处，
+清单里要把它们一次列全（漏一处门禁就会红，但那时已经写完了）：
+
+- `api/af_api/<x>.h`（契约）+ 实现；
+- `docs/generated/catalog.md`（能力位）或 `docs/generated/svc-ids.md`（服务号）的登记行；
+- `docs/error-codes.md`（新错误码的话）+ `common/include/cm_types.h`；
+- `docs/build-and-usage.md` / `docs/acceptance.md` 的数字与条目；
+- 要不要人改 `tools/`（门禁本身）——这条我改不了。
+
+批准了才动手——**任务描述不是批准**。
+
+## 1.1 确认你写得了
 
 ```bash
 python3 tools/check_workspace_policy.py --as 5 api/af_api/app.h
@@ -40,6 +53,8 @@ python3 tools/check_workspace_policy.py --as 5 framework/src/fw_ctx.c
 | `api/af_api/res.h` | App | 槽位式资源、配额控制面 |
 | `api/af_api/evt.h` | App | 事件环形队列（含 ISR 版） |
 | `api/af_api/svc.h` | App | 服务注册表 + 提交型接口 |
+| `api/af_api/cap.h` | App | 能力位查询（`cap_available`）；位号与 `pf_ops.h` 编译期钉住 |
+| `api/af_api/uart.h` | App | 第一个真实能力（串口）；新能力照它抄四件套 |
 | `api/af_api/mgr.h` | App（管理器） | 控制面：发号、造实例、启停、观察、回收。**使用面与控制面分文件**，因为两者失败模式不同 |
 | `common/include/cm_types.h` | 所有人 | `cm_err_t` 与字符串 |
 | `common/include/cm_atomic.h` | 所有人 | `CM_ATOMIC_*` 五个宏 + 内存序枚举 |
@@ -135,4 +150,9 @@ python3 tools/check_workspace_policy.py --as 5 framework/src/fw_ctx.c
 | 能力位 ↔ 接口头的登记表 | `docs/generated/catalog.md` |
 | 九项为什么是这九项 | `docs/pf-ops-decision.md` |
 | 可执行验收线 | `docs/acceptance.md` |
+| **命名 / 注释 / 排版 / 内存怎么算对** | [`docs/coding-style.md`](../../docs/coding-style.md)（§12 是提交前自查表） |
 | 全局规矩、四行交付、停手条件 | [`AGENTS.md`](../../AGENTS.md) |
+
+---
+
+做完按 [`AGENTS.md`](../../AGENTS.md) §6 交：四行状态 + **实现了什么**（对照清单逐条）+ **需要用户处理什么**（提交 / 授权 / 改考卷 / 拍板）。

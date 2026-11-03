@@ -92,6 +92,14 @@ void fw_app_ctx_free(struct fw_app_ctx *c)
     if (c == NULL || ops == NULL || ops->mem_free == NULL) {
         return;
     }
+
+    /* 先从活实例表里摘掉，再释放（D53 的收尾）。
+     *
+     * 不这么做的话，"释放了但忘了摘表"会在表里留一根悬垂指针——而表正是管理器
+     * 用来枚举"现在都有谁"的东西，下一次遍历就会踩到野内存。让释放自己兜住这件事，
+     * 比要求每个调用方记住顺序可靠：这是踩过一次崩溃才补上的（test_fw_event 与
+     * test_heartbeat 的收尾同时释放了表里的实例）。 */
+    fw_live_remove(c);
     ops->mem_free(c);
 }
 
@@ -99,6 +107,7 @@ cm_err_t fw_app_start(struct fw_app_ctx *c)
 {
     const pf_ops_t *ops = fw_ops();
     pf_task_desc_t td;
+    cm_err_t rc;
 
     if (c == NULL || ops == NULL || ops->task_create == NULL) {
         return CM_ERR_STATE;
@@ -116,11 +125,25 @@ cm_err_t fw_app_start(struct fw_app_ctx *c)
      * 不这么做的话"同一上下文启动两次"的窗口是开着的。 */
     CM_ATOMIC_STORE(&c->state, (uint32_t)FW_APP_STATE_INIT, CM_MEM_RELEASE);
 
+    /* D53：启动即入活实例表——管理器（或框架）都靠它枚举"谁在跑"。
+     * 先入表再建任务：建任务失败要能把表项撤掉，反过来做不到。 */
+    rc = fw_live_add(c);
+    if (rc != CM_OK) {
+        CM_ATOMIC_STORE(&c->state, (uint32_t)FW_APP_STATE_EMPTY, CM_MEM_RELEASE);
+        return rc;
+    }
+
     if (ops->task_create(&td) == NULL) {
+        fw_live_remove(c);
         CM_ATOMIC_STORE(&c->state, (uint32_t)FW_APP_STATE_EMPTY, CM_MEM_RELEASE);
         return CM_ERR_NOMEM;
     }
     return CM_OK;
+}
+
+uint32_t fw_app_id(const struct fw_app_ctx *c)
+{
+    return (c != NULL) ? c->pub.id : (uint32_t)APP_ID_INVALID;
 }
 
 fw_app_state_e fw_app_state(const struct fw_app_ctx *c)

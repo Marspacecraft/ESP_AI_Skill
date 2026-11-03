@@ -8,7 +8,8 @@
 **现在不是什么**：不是"ESP32 全系通用框架"的完成态。v1 只有九项基础设施
 （内存 / 时钟 / 睡眠 / 互斥 / 建任务 / 退任务 + 表版本 + 能力位 + 日志钩子），
 **没有显示屏、输入、音频、网络、存储、电源的能力头**——`api/af_api/` 里只有
-`app.h`（生命周期）、`res.h`（资源与配额）、`evt.h`（事件）、`svc.h`（服务）。
+`app.h`（生命周期）、`res.h`（资源与配额）、`evt.h`（事件）、`svc.h`（服务）、
+`mgr.h`（管理器面：拉起/停止/回收别的 App）。
 文档里提到的 `disp_commit` 之类是设计稿，不是可调用的东西。
 
 ---
@@ -155,7 +156,7 @@ const app_desc_t app_demo_desc = {
 | 验收线 A1–A8（哪些能自动、哪些要人审） | [`docs/acceptance.md`](docs/acceptance.md) |
 | 能力位 ↔ 接口头 | [`docs/generated/catalog.md`](docs/generated/catalog.md) |
 | 产品仓库怎么把本仓库引进去 | [`docs/cross-repo.md`](docs/cross-repo.md) |
-| 决策与施工记录（D1–D51） | [`实施步骤.md`](实施步骤.md) |
+| 决策与施工记录（D1–D53） | [`实施步骤.md`](实施步骤.md) |
 
 谁写哪个目录由 [`policy.txt`](policy.txt) 决定，不是由你声明：
 
@@ -185,7 +186,7 @@ python3 tools/check_workspace_policy.py --as 2 apps/demo/app_demo.c   # ALLOW/DE
 | **服务注册表** | App 之间不链接符号，按 id 找人；`NOT_SUPPORTED` / `UNAVAILABLE` 是两件事 |
 | **能力位** | `pf_ops_t.caps()` 报"这块板有什么硬件"；有位 ≠ 有接口可调 |
 | **tag** | 分层写权限（1 系统 App / 2 业务 App / 3 框架 / 4 平台 / 5 接口） |
-| **nobody** | 考卷类文件（`tools/`、`build.sh`、`policy.txt`、`AGENTS.md`）：AI 只读 |
+| **nobody** | 考卷类文件（`tools/`、`build.sh`、`policy.txt`、`AGENTS.md`、`skills/`）：AI 只读 |
 | **四行交付** | Build / Host tests / Device tests / Unverified；缺一段视为没交付 |
 
 ---

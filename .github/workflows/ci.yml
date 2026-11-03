@@ -35,3 +35,38 @@ jobs:
       # 所以 `Device tests` 在 CI 上永远是 NOT RUN —— 这不叫跳过，叫能力边界。
       - name: Build + gates + host tests
         run: ./build.sh run
+
+  # Windows 单独一个 job：`build.sh` 是 POSIX sh，默认的 pwsh 壳子跑不了。
+  #
+  # 用 MSYS2 的 **MSYS** 环境而不是 mingw64/ucrt64：`platform/host-fake/` 用的是
+  # pthread + `clock_gettime` + `nanosleep`，mingw 的 winpthreads 只覆盖其中一部分，
+  # 硬上会得到一堆"这条在 Windows 上本来就没有"的红。MSYS 是 POSIX 层，验的是
+  # "C 代码在 Windows 上也能编、能跑、门禁能过"，不冒充"原生 Windows 二进制"。
+  build-windows:
+    name: build (windows-latest)
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MSYS
+          update: true
+          install: >-
+            gcc
+            make
+            python
+
+      # `build.sh` 用 `cc`，`check_link.py` 也找 `cc`；MSYS 的 gcc 包只装 `gcc`，
+      # 这里补一个软链，免得三个脚本各自退回不同的编译器。
+      - name: Provide cc
+        run: |
+          command -v cc || ln -sf "$(command -v gcc)" /usr/bin/cc
+          cc --version | head -1
+          python3 --version
+
+      - name: Build + gates + host tests
+        run: ./build.sh run

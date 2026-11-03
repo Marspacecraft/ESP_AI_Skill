@@ -18,7 +18,7 @@
 ./build.sh run     # 唯一构建入口：编译全部用例 + 跑四道门禁 + 跑全部 host 测试
 ```
 
-当前基线：**154 条 host 用例全绿** + `check_entry_unique` / `link 面` / `纯 C 边界` / `能力目录` 四道门禁 PASS。
+当前基线：**159 条 host 用例全绿** + `check_entry_unique` / `link 面` / `纯 C 边界` / `能力目录` 四道门禁 PASS。
 真机：两块板（ESP32-C3 `ai-passport`、ESP32-S3 devkit）各跑同一份 **37 条**用例，`DEVICE_DONE rc=0`。
 
 | 想知道 | 去哪 |
@@ -33,7 +33,7 @@
 | 验收线怎么算过 | `docs/acceptance.md`（A1–A8） |
 | 哪个能力位对应哪个头 | `docs/generated/catalog.md`（与 `pf_ops.h` 双向绑定，门禁会红） |
 | 产品仓库怎么把本仓库引进去 | `docs/cross-repo.md` |
-| 决策与施工记录 | `实施步骤.md`（§7 决策 D1–D51，§8 推进记录） |
+| 决策与施工记录 | `实施步骤.md`（§7 决策 D1–D53，§8 推进记录） |
 
 ---
 
@@ -59,8 +59,9 @@ python3 tools/check_workspace_policy.py --as 2 apps/demo/app_demo.c   # ALLOW/DE
 
 ## 3. 五条硬规矩
 
-1. **不改 `tools/`、`build.sh`、`policy.txt`、`AGENTS.md`**——这四个是考卷本身，归 `nobody`。
+1. **不改 `tools/`、`build.sh`、`policy.txt`、`AGENTS.md`、`skills/`**——这五个是考卷本身，归 `nobody`。
    发现它们有问题：**报告，不要自己改**。
+   把 `skills/` 也锁上，是因为让 AI 改"给 AI 看的说明书"，它会把约束改写成自己做得到的样子。
 2. **不跨层**：`apps → framework → platform`；框架不知道有哪些 App、也不知道板是谁
    （靠 `app_manifest_primary()` / `pf_platform_ops()` 两个钩子）。
 3. **可阻塞接口一律伪阻塞**：`fw_delay_block()` 之后的代码可能永远不执行。清理只能写在
@@ -159,7 +160,7 @@ Unverified:   还有什么没验证、为什么
 
 命中任一条，**停下来报告**（格式：我在做什么 / 撞到哪条 / 为什么不能自己解决 / 选项与代价 / 我建议哪个 / 回复前不动哪些文件）：
 
-- 要改 `tools/`、`build.sh`、`policy.txt`、`AGENTS.md`；
+- 要改 `tools/`、`build.sh`、`policy.txt`、`AGENTS.md`、`skills/`；
 - 要改分层方向或 `api/` 的公开签名；
 - 需要某个能力但 `api/` 里没有（例如显示）——报告，别自己造；
 - 要烧录真机、要提交、要动别人的仓库；

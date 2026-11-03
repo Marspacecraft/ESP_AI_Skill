@@ -200,7 +200,7 @@ TT_UNUSED static int tt_summary(void)
         const char *tt_a_ = (actual);                                         \
         if (tt_e_ == NULL || tt_a_ == NULL) {                                 \
             if (tt_e_ != tt_a_) {                                             \
-                char tt_buf_[200];                                            \
+                char tt_buf_[280];   /* 与下面一支同宽：两段 %.120s + 中文前缀刚好 259 字节 */ \
                 snprintf(tt_buf_, sizeof tt_buf_,                             \
                          "期望 \"%.120s\", 实际 \"%.120s\"",                   \
                          tt_e_ ? tt_e_ : "(null)", tt_a_ ? tt_a_ : "(null)"); \

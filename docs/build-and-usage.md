@@ -50,7 +50,7 @@ platform/   平台适配：九项基础设施 + 能力位
 ├── build.sh              # 唯一构建入口（nobody：只有人能改）
 ├── policy.txt            # 写权/链接权的唯一来源（nobody）
 ├── AGENTS.md             # AI 入口（nobody）
-├── 实施步骤.md            # 施工计划 + 决策 D1–D50 + 推进记录（nobody）
+├── 实施步骤.md            # 施工计划 + 决策 D1–D53 + 推进记录（nobody）
 │
 ├── api/af_api/           # App 的门面：app.h res.h evt.h svc.h     [tag 5 写]
 ├── common/               # cm_types.h/.c：cm_err_t、错误码；cm_atomic.h：原子访问  [tag 5 写]
@@ -76,10 +76,11 @@ platform/   平台适配：九项基础设施 + 能力位
 ├── tests/port/idf/       # 独立 ESP-IDF 自检固件
 │
 ├── tools/                # 门禁脚本（考卷本身，nobody）
+├── skills/               # 四份角色 skill（给 AI 的说明书，nobody）
 └── docs/                 # 你正在读的这一份
 ```
 
-`policy.txt` 的完整语义见第 5 节。一句话：**`tools/`、`build.sh`、`policy.txt`、`AGENTS.md`、
+`policy.txt` 的完整语义见第 5 节。一句话：**`tools/`、`build.sh`、`policy.txt`、`AGENTS.md`、`skills/`、
 `实施步骤.md`、`.github/` 归 `nobody`——AI 发现它们有问题只能报告，不能自己改。**
 
 ---
@@ -298,6 +299,34 @@ cm_err_t rc = fw_svc_ready(SVC_STORAGE);
 跨任务传数据用 `fw_svc_submit()`——**提交即拷贝**，返回后你的缓冲区就能重用；
 表满返回 `CM_ERR_BUSY`（"等会儿再来"），不是 `NOMEM`。
 
+### 6.5 让一个 App 当管理器（控制面）
+
+普通 App 只需要 `app.h`；**要拉起、观察、停掉、回收别的 App** 才 include `mgr.h`：
+
+```c
+#include "api/af_api/mgr.h"
+
+uint32_t id = 0u;
+if (fw_alloc_id(&id) != CM_OK) { /* 号发完了（253 个） */ }
+
+struct fw_app_ctx *c = fw_app_ctx_new_with_id(&some_desc, id);
+if (c == NULL) { /* 平台表没绑 / 没内存 */ }
+
+if (fw_app_start(c) != CM_OK) { /* 平台拒绝建任务 */ }
+/* 返回时状态还是 INIT——init() 跑在它自己的任务里。等 RUNNING 要轮询： */
+while (fw_app_state(c) != FW_APP_STATE_RUNNING) { fw_delay_block(10); }
+
+fw_app_request_cancel(c);                 /* 只是"请求"，不是"立刻停" */
+while (fw_app_state(c) != FW_APP_STATE_STOPPED &&
+       fw_app_state(c) != FW_APP_STATE_FAILED) { fw_delay_block(10); }
+fw_app_ctx_free(c);                        /* 任务结束了才许释放 */
+```
+
+三条容易记错的：id **只增不减**（重启必换号，D18）；**所有 `fw_app_start()` 拉起的实例
+都进活实例表**（D53），包括你自己造的孩子，所以"丢指针"不等于"再也找不到"；停掉的实例
+**仍在表里**，直到你 `fw_live_remove()` 或 `fw_app_ctx_free()`（释放会自动摘表）。
+`fw_boot()` 不是管理器 API——它只负责整机启动时拉起 `APP_FLAG_SYSTEM` 那几个。
+
 ---
 
 ## 7. 接一块板
@@ -427,7 +456,7 @@ Unverified:   还有什么没验证、为什么
 | A1–A8 验收线怎么算过 | [`acceptance.md`](acceptance.md) |
 | 能力位 ↔ 接口头的映射 | [`generated/catalog.md`](generated/catalog.md) |
 | 产品仓库怎么把本仓库当组件引进去 | [`cross-repo.md`](cross-repo.md) |
-| 决策与施工记录（D1–D50） | [`../实施步骤.md`](../实施步骤.md) |
+| 决策与施工记录（D1–D53） | [`../实施步骤.md`](../实施步骤.md) |
 
 ---
 

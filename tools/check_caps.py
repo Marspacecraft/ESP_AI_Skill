@@ -35,6 +35,7 @@ NONCAP_HEADERS = {
     "res.h",   # 资源与配额
     "evt.h",   # 事件
     "svc.h",   # 服务注册表
+    "mgr.h",   # 管理器面（控制面）：发号、造实例、启停、回收
 }
 
 RESERVED_FIRST_BIT = 9

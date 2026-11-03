@@ -8,7 +8,7 @@
 # 三个词在这里的意思（别混）：
 #   write = 实现能不能放在这里、参与编译链接
 #   link  = 能不能 include / 链接这里的头（**不是"能不能看"**；查看源码永远不受限）
-#   nobody= 只有人能改
+#   nobody= 只有人能改（含 .clang-format：它决定全仓排版，改它等于改全仓的 diff）
 #
 # 读权不传递（D2）：能 include 一个头，不等于能 include 它 include 的东西。
 # 公开头的依赖闭包必须落在读者自己的 link 集合里；撑破闭包时错在那个头，不在调用方。
@@ -36,7 +36,7 @@ role 5  api        api/                    common/
 # 门禁有 bug 属于契约变更，走评审，不走"顺手改一下"。
 # `AGENTS.md` 与 `skills/` 同理：它们是**给 AI 看的说明书**。让 AI 改说明书，
 # 它会把约束改写成自己做得到的样子——那样门禁检查的就不是约定，而是现状。
-nobody policy.txt  AGENTS.md  实施步骤.md  build.sh  tools/  .github/  skills/
+nobody policy.txt  AGENTS.md  实施步骤.md  build.sh  .clang-format  tools/  .github/  skills/
 
 # ── link（可链接集合）──────────────────────────────────────────
 # App 与框架：common/ 是所有人的公共库；api/af_api/ 是 App 的门面；

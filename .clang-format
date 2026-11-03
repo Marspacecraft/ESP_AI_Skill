@@ -1,0 +1,25 @@
+# 本仓库的 C / 头文件格式。规则与 docs/coding-style.md §8 对应。
+# 用法：xcrun clang-format -i <files>   （或先把 clang-format 装进 PATH）
+#
+# 为什么是这几项（而不是 clang-format 的默认 LLVM 风格）：
+#   BreakBeforeBraces: Linux          函数花括号另起一行，控制语句同行 —— 全仓既有写法
+#   AllowShortFunctionsOnASingleLine  一行函数也展开 —— 与「每个函数都有四段注释」配套
+#   PointerAlignment: Right           const char *name —— 星号贴变量名
+#   ReflowComments: false             不动中文注释的换行（重排会毁掉手写的注释块）
+#   SortIncludes: false               include 顺序是有含义的（自己的头 → 标准库 → 本仓头）
+BasedOnStyle: LLVM
+Language: Cpp
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ColumnLimit: 100
+BreakBeforeBraces: Linux
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+PointerAlignment: Right
+ReflowComments: false
+SortIncludes: false
+AlignAfterOpenBracket: Align
+SpaceAfterCStyleCast: false
+IndentCaseLabels: false

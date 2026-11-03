@@ -26,9 +26,9 @@
  * 整数倍（64 位上是 24 字节，32 位上是 16 字节），用户指针因此总是对齐的。
  */
 struct fw_alloc_hdr {
-    size_t size;                  /* 用户要的字节数（不含头） */
-    struct fw_app_ctx *owner;     /* 记到谁的账上；可空（框架自己分配） */
-    uint32_t magic;               /* 校验：不是我们发的指针一律不碰 */
+    size_t size;              /* 用户要的字节数（不含头） */
+    struct fw_app_ctx *owner; /* 记到谁的账上；可空（框架自己分配） */
+    uint32_t magic;           /* 校验：不是我们发的指针一律不碰 */
     uint32_t pad;
 };
 

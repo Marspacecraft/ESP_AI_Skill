@@ -45,26 +45,26 @@ typedef struct pf_task pf_task_t;
  * 位 0–9 已定：0 显示 / 1 局部刷新 / 2 触摸 / 3 按键 / 4 存储 / 5 网络 /
  *             6 放音 / 7 录音 / 8 RTC / 9 串口。
  * 返回 0 完全合法——一块什么都没有的板子也能跑框架与不依赖硬件的 App。 */
-#define PF_CAP_DISPLAY         (1u << 0)  /* 有屏 */
-#define PF_CAP_DISPLAY_PARTIAL (1u << 1)  /* 屏支持局部刷新 */
-#define PF_CAP_TOUCH           (1u << 2)  /* 触摸输入 */
-#define PF_CAP_KEY             (1u << 3)  /* 物理按键 */
-#define PF_CAP_STORAGE         (1u << 4)  /* 非易失存储 */
-#define PF_CAP_NET             (1u << 5)  /* 网络 */
-#define PF_CAP_AUDIO_OUT       (1u << 6)  /* 放音 */
-#define PF_CAP_AUDIO_IN        (1u << 7)  /* 录音 */
-#define PF_CAP_RTC             (1u << 8)  /* 实时时钟 */
-#define PF_CAP_UART            (1u << 9)  /* 至少一路可用的应用串口（见 pf_uart.h） */
-#define PF_CAP_RESERVED_MASK   0xFFFFFC00u /* 位 10–31，必须为 0 */
+#define PF_CAP_DISPLAY (1u << 0)         /* 有屏 */
+#define PF_CAP_DISPLAY_PARTIAL (1u << 1) /* 屏支持局部刷新 */
+#define PF_CAP_TOUCH (1u << 2)           /* 触摸输入 */
+#define PF_CAP_KEY (1u << 3)             /* 物理按键 */
+#define PF_CAP_STORAGE (1u << 4)         /* 非易失存储 */
+#define PF_CAP_NET (1u << 5)             /* 网络 */
+#define PF_CAP_AUDIO_OUT (1u << 6)       /* 放音 */
+#define PF_CAP_AUDIO_IN (1u << 7)        /* 录音 */
+#define PF_CAP_RTC (1u << 8)             /* 实时时钟 */
+#define PF_CAP_UART (1u << 9)            /* 至少一路可用的应用串口（见 pf_uart.h） */
+#define PF_CAP_RESERVED_MASK 0xFFFFFC00u /* 位 10–31，必须为 0 */
 
 /* ── 任务描述体 ────────────────────────────────────────────────────
  * 只有四件事。**没有优先级**：框架不设优先级分带，平台的调度策略由平台自己定，
  * 但必须保证所有任务可被抢占（否则 App 里的 fw_delay_block() 会让整机饿死）。 */
 typedef struct pf_task_desc {
-    const char *name;        /* 只用于诊断；平台可截断；框架不依赖内容（可为 NULL） */
-    void (*entry)(void *arg);/* 任务入口；返回即等于任务结束 */
-    void *arg;               /* 传给 entry 的参数；可为 NULL，框架原样转交 */
-    uint32_t stack_bytes;    /* 栈字节数，须 >= PF_TASK_MIN_STACK */
+    const char *name;         /* 只用于诊断；平台可截断；框架不依赖内容（可为 NULL） */
+    void (*entry)(void *arg); /* 任务入口；返回即等于任务结束 */
+    void *arg;                /* 传给 entry 的参数；可为 NULL，框架原样转交 */
+    uint32_t stack_bytes;     /* 栈字节数，须 >= PF_TASK_MIN_STACK */
 } pf_task_desc_t;
 
 /* ── 端口表 ────────────────────────────────────────────────────── */

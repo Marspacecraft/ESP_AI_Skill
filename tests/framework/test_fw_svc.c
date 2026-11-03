@@ -46,8 +46,7 @@ static void stop_all(void)
 
         fw_app_request_cancel(c);
         for (int i = 0; i < 400; i++) {
-            if (fw_app_state(c) == FW_APP_STATE_STOPPED ||
-                fw_app_state(c) == FW_APP_STATE_FAILED) {
+            if (fw_app_state(c) == FW_APP_STATE_STOPPED || fw_app_state(c) == FW_APP_STATE_FAILED) {
                 break;
             }
             pf_host_fake_ops_get()->sleep_ms(2u);
@@ -194,7 +193,7 @@ TT_CASE(bad_arguments_are_rejected)
     setup();
     a = start_owner(9u);
     TT_ASSERT_NOT_NULL(a);
-    TT_ASSERT_INT(CM_ERR_INVALID, fw_svc_register_ctx(0u, a));            /* id 0 永远无效 */
+    TT_ASSERT_INT(CM_ERR_INVALID, fw_svc_register_ctx(0u, a)); /* id 0 永远无效 */
     TT_ASSERT_INT(CM_ERR_INVALID, fw_svc_register_ctx((fw_svc_id_t)FW_SVC_MAX, a));
     TT_ASSERT_INT(CM_ERR_INVALID, fw_svc_register_ctx(SVC_STORAGE, NULL));
     TT_ASSERT_INT(CM_ERR_INVALID, fw_svc_ready(0u));

@@ -18,16 +18,16 @@
 /* ── A. 契约检查器（测试侧的模型）───────────────────────────────── */
 enum {
     PF_OK = 0,
-    PF_BAD_VERSION = 1,      /* 表布局版本不匹配 */
-    PF_BAD_CAPS = 2,         /* 保留位非 0（或 caps 为 NULL） */
-    PF_MISSING_MEMBER = 3,   /* 九项里有 NULL */
+    PF_BAD_VERSION = 1,    /* 表布局版本不匹配 */
+    PF_BAD_CAPS = 2,       /* 保留位非 0（或 caps 为 NULL） */
+    PF_MISSING_MEMBER = 3, /* 九项里有 NULL */
 };
 
-#define PF_REQUIRE(field)                                                     \
-    do {                                                                      \
-        if (o->field == NULL) {                                               \
-            return PF_MISSING_MEMBER;                                         \
-        }                                                                     \
+#define PF_REQUIRE(field)                                                                          \
+    do {                                                                                           \
+        if (o->field == NULL) {                                                                    \
+            return PF_MISSING_MEMBER;                                                              \
+        }                                                                                          \
     } while (0)
 
 static int pf_contract_check(const pf_ops_t *o)
@@ -72,8 +72,14 @@ static int g_task_ran;
 static int g_exit_before;
 static int g_exit_after;
 
-static int g_get(const int *p) { return __atomic_load_n(p, __ATOMIC_RELAXED); }
-static void g_set(int *p, int v) { __atomic_store_n(p, v, __ATOMIC_RELAXED); }
+static int g_get(const int *p)
+{
+    return __atomic_load_n(p, __ATOMIC_RELAXED);
+}
+static void g_set(int *p, int v)
+{
+    __atomic_store_n(p, v, __ATOMIC_RELAXED);
+}
 
 /* 进任务后先睡 10ms，确保持锁者已经把锁拿稳，再试 5ms。 */
 static void contender(void *arg)
@@ -211,7 +217,7 @@ TT_CASE(mutex_timeout_is_relative)
     TT_ASSERT_INT(0, o->mutex_take(g_mx, 0));
 
     g_set(&g_take_result, 123);
-    pf_task_desc_t desc = { "contender", contender, NULL, 32768u };
+    pf_task_desc_t desc = {"contender", contender, NULL, 32768u};
     TT_ASSERT_NOT_NULL(o->task_create(&desc));
 
     for (int i = 0; i < 40 && g_get(&g_take_result) == 123; i++) {
@@ -220,7 +226,7 @@ TT_CASE(mutex_timeout_is_relative)
     o->mutex_give(g_mx);
 
     TT_ASSERT_TRUE(g_get(&g_take_result) != 123); /* 跑完了 */
-    TT_ASSERT_INT(-1, g_get(&g_take_result)); /* 相对超时：等 5ms 没拿到 */
+    TT_ASSERT_INT(-1, g_get(&g_take_result));     /* 相对超时：等 5ms 没拿到 */
 }
 
 TT_CASE(mutex_reacquire_after_give)
@@ -233,14 +239,14 @@ TT_CASE(mutex_reacquire_after_give)
 TT_CASE(task_rejects_small_stack)
 {
     const pf_ops_t *o = pf_host_fake_ops_get();
-    pf_task_desc_t desc = { "small", simple_task, NULL, PF_TASK_MIN_STACK - 1u };
+    pf_task_desc_t desc = {"small", simple_task, NULL, PF_TASK_MIN_STACK - 1u};
     TT_ASSERT_TRUE(o->task_create(&desc) == NULL);
 }
 
 TT_CASE(task_rejects_null_entry)
 {
     const pf_ops_t *o = pf_host_fake_ops_get();
-    pf_task_desc_t desc = { "no-entry", NULL, NULL, 32768u };
+    pf_task_desc_t desc = {"no-entry", NULL, NULL, 32768u};
     TT_ASSERT_TRUE(o->task_create(&desc) == NULL);
 }
 
@@ -248,7 +254,7 @@ TT_CASE(task_runs_entry)
 {
     const pf_ops_t *o = pf_host_fake_ops_get();
     g_set(&g_task_ran, 0);
-    pf_task_desc_t desc = { "runner", simple_task, NULL, 32768u };
+    pf_task_desc_t desc = {"runner", simple_task, NULL, 32768u};
     TT_ASSERT_NOT_NULL(o->task_create(&desc));
 
     for (int i = 0; i < 100 && g_get(&g_task_ran) == 0; i++) {
@@ -262,7 +268,7 @@ TT_CASE(task_exit_current_does_not_return)
     const pf_ops_t *o = pf_host_fake_ops_get();
     g_set(&g_exit_before, 0);
     g_set(&g_exit_after, 0);
-    pf_task_desc_t desc = { "exiter", exiting_task, NULL, 32768u };
+    pf_task_desc_t desc = {"exiter", exiting_task, NULL, 32768u};
     TT_ASSERT_NOT_NULL(o->task_create(&desc));
 
     for (int i = 0; i < 100 && g_get(&g_exit_before) == 0; i++) {

@@ -109,8 +109,8 @@ TT_CASE(sleep_25ms_takes_at_least_20ms)
     ops()->sleep_ms(25u);
     elapsed = (uint32_t)(ops()->clock_ms() - start);
 
-    TT_ASSERT_TRUE(elapsed >= 20u);  /* 睡少了 = 忙等或截断 */
-    TT_ASSERT_TRUE(elapsed < 500u);  /* 睡多了 = tick 换算错了一个量级 */
+    TT_ASSERT_TRUE(elapsed >= 20u); /* 睡少了 = 忙等或截断 */
+    TT_ASSERT_TRUE(elapsed < 500u); /* 睡多了 = tick 换算错了一个量级 */
 }
 
 TT_CASE(sleep_zero_returns_quickly)

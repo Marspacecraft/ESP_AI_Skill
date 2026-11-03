@@ -22,16 +22,22 @@
 
 /* ── 用例共享状态 ─────────────────────────────────────────────── */
 static struct fw_app_ctx *g_ctx;
-static uint32_t g_cancel_at;          /* 第几次 sleep 之后注入取消；0 = 不注入 */
+static uint32_t g_cancel_at; /* 第几次 sleep 之后注入取消；0 = 不注入 */
 /* 任务线程写、主线程读：`volatile` 不构成同步，一律 relaxed 原子。 */
 static int g_init_calls;
 static int g_exit_calls;
-static int g_after_delay;    /* 不该被执行的标记 */
-static int g_exit_blocked;   /* exit() 里再调阻塞后是否返回了 */
-static int g_done;           /* 正常跑完标记 */
+static int g_after_delay;  /* 不该被执行的标记 */
+static int g_exit_blocked; /* exit() 里再调阻塞后是否返回了 */
+static int g_done;         /* 正常跑完标记 */
 
-static int g_get(const int *p) { return __atomic_load_n(p, __ATOMIC_RELAXED); }
-static void g_set(int *p, int v) { __atomic_store_n(p, v, __ATOMIC_RELAXED); }
+static int g_get(const int *p)
+{
+    return __atomic_load_n(p, __ATOMIC_RELAXED);
+}
+static void g_set(int *p, int v)
+{
+    __atomic_store_n(p, v, __ATOMIC_RELAXED);
+}
 
 /* ── 回调 ─────────────────────────────────────────────────────── */
 static cm_err_t cb_init_ok(app_ctx_t *ctx)
@@ -144,14 +150,14 @@ static int wait_flag(const int *flag, uint32_t timeout_ms)
 }
 
 /* ── 描述体 ───────────────────────────────────────────────────── */
-static const app_desc_t k_forever = {
-    7u, "forever", cb_init_ok, cb_exit, cb_task_forever, 0u, APP_STACK_MIN};
-static const app_desc_t k_init_fail = {
-    8u, "init_fail", cb_init_fail, cb_exit, cb_task_forever, 0u, APP_STACK_MIN};
-static const app_desc_t k_return = {
-    9u, "ret", cb_init_ok, cb_exit, cb_task_return, 0u, APP_STACK_MIN};
-static const app_desc_t k_short = {
-    10u, "short", cb_init_ok, cb_exit, cb_task_short, 0u, APP_STACK_MIN};
+static const app_desc_t k_forever = {7u, "forever",    cb_init_ok, cb_exit, cb_task_forever,
+                                     0u, APP_STACK_MIN};
+static const app_desc_t k_init_fail = {8u, "init_fail",  cb_init_fail, cb_exit, cb_task_forever,
+                                       0u, APP_STACK_MIN};
+static const app_desc_t k_return = {9u, "ret",        cb_init_ok, cb_exit, cb_task_return,
+                                    0u, APP_STACK_MIN};
+static const app_desc_t k_short = {10u,           "short", cb_init_ok,   cb_exit,
+                                   cb_task_short, 0u,      APP_STACK_MIN};
 
 /* ── 用例 ─────────────────────────────────────────────────────── */
 
@@ -172,7 +178,7 @@ TT_CASE(cancel_stops_at_slice_boundary)
     TT_ASSERT_INT(1u, fw_app_exit_calls(g_ctx));
     TT_ASSERT_INT(0, g_get(&g_after_delay));
     TT_ASSERT_INT(1, g_get(&g_exit_blocked));
-    TT_ASSERT_INT(0u, g_ctx->cancel);          /* ① 先清位 */
+    TT_ASSERT_INT(0u, g_ctx->cancel); /* ① 先清位 */
     TT_ASSERT_TRUE(clock_fake_max_slice_ms() <= FW_DELAY_SLICE_MS);
     teardown();
 }
@@ -206,7 +212,7 @@ TT_CASE(init_failure_goes_failed_and_exits_once)
     }
 
     TT_ASSERT_INT(1, g_get(&g_exit_calls));
-    TT_ASSERT_INT(1, g_get(&g_exit_blocked));          /* exit() 里的阻塞返回了 */
+    TT_ASSERT_INT(1, g_get(&g_exit_blocked)); /* exit() 里的阻塞返回了 */
     teardown();
 }
 

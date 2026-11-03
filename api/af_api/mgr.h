@@ -32,12 +32,12 @@ extern "C" {
 
 /** 实例的生命周期状态。没有"暂停"——暂停是可以不实现的，停下来是可实现的。 */
 typedef enum {
-    FW_APP_STATE_EMPTY = 0,   /**< 上下文已分配，任务还没建。 */
-    FW_APP_STATE_INIT = 1,    /**< 任务已建，`init()` 正在跑（尚未返回）。 */
-    FW_APP_STATE_RUNNING = 2, /**< `init()` 成功返回，`task()` 在跑。 */
-    FW_APP_STATE_STOPPING = 3,/**< 已进入退出路径，`exit()` 可能正在跑。 */
-    FW_APP_STATE_STOPPED = 4, /**< 正常退出：取消位命中，`exit()` 恰好调过一次。 */
-    FW_APP_STATE_FAILED = 5,  /**< 失败退出：`init()` 非 CM_OK，或 `task()` 返回。 */
+    FW_APP_STATE_EMPTY = 0,    /**< 上下文已分配，任务还没建。 */
+    FW_APP_STATE_INIT = 1,     /**< 任务已建，`init()` 正在跑（尚未返回）。 */
+    FW_APP_STATE_RUNNING = 2,  /**< `init()` 成功返回，`task()` 在跑。 */
+    FW_APP_STATE_STOPPING = 3, /**< 已进入退出路径，`exit()` 可能正在跑。 */
+    FW_APP_STATE_STOPPED = 4,  /**< 正常退出：取消位命中，`exit()` 恰好调过一次。 */
+    FW_APP_STATE_FAILED = 5,   /**< 失败退出：`init()` 非 CM_OK，或 `task()` 返回。 */
 } fw_app_state_e;
 
 /** 不透明的实例上下文。App 只能持有指针，**不许解引用**（布局属于框架内部）。 */

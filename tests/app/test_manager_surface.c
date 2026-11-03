@@ -47,8 +47,7 @@ static int wait_terminal(struct fw_app_ctx *c, uint32_t timeout_ms)
 {
     uint32_t t0 = ops()->clock_ms();
 
-    while (fw_app_state(c) != FW_APP_STATE_STOPPED &&
-           fw_app_state(c) != FW_APP_STATE_FAILED) {
+    while (fw_app_state(c) != FW_APP_STATE_STOPPED && fw_app_state(c) != FW_APP_STATE_FAILED) {
         if ((uint32_t)(ops()->clock_ms() - t0) > timeout_ms) {
             return 0;
         }

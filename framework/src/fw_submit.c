@@ -17,7 +17,7 @@
 struct submit_slot {
     fw_svc_id_t svc;
     uint32_t key;
-    unsigned char *buf;   /* 框架自己的拷贝，取走/顶掉时释放 */
+    unsigned char *buf; /* 框架自己的拷贝，取走/顶掉时释放 */
     size_t len;
     fw_submit_done_fn done;
     void *user;
@@ -32,7 +32,7 @@ static cm_err_t lock_try(void)
     const pf_ops_t *ops = fw_ops();
 
     if (ops == NULL || s_lock == NULL) {
-        return CM_ERR_STATE;      /* 没 init 就提交：调用方顺序错了 */
+        return CM_ERR_STATE; /* 没 init 就提交：调用方顺序错了 */
     }
     if (ops->mutex_take(s_lock, 0u) != 0) {
         return CM_ERR_BUSY;
@@ -77,7 +77,7 @@ cm_err_t fw_submit_init(void)
         return CM_ERR_STATE;
     }
     if (s_lock != NULL) {
-        return CM_OK;             /* 已经建过：重复 init 会先被 fw_init 挡住 */
+        return CM_OK; /* 已经建过：重复 init 会先被 fw_init 挡住 */
     }
     s_lock = ops->mutex_create();
     /* 建不出锁 = 平台违约（九项里 mutex_create 承诺只有资源耗尽才返回 NULL），
@@ -121,7 +121,7 @@ cm_err_t fw_svc_submit(fw_svc_id_t svc, uint32_t key, const void *data, size_t l
 
     rc = lock_try();
     if (rc != CM_OK) {
-        ops->mem_free(copy);      /* 进不去就不留半成品 */
+        ops->mem_free(copy); /* 进不去就不留半成品 */
         return rc;
     }
 
@@ -162,8 +162,8 @@ cm_err_t fw_svc_submit(fw_svc_id_t svc, uint32_t key, const void *data, size_t l
     return CM_OK;
 }
 
-cm_err_t fw_svc_submit_take(fw_svc_id_t svc, uint32_t *out_key,
-                            void *buf, size_t cap, size_t *out_len)
+cm_err_t fw_svc_submit_take(fw_svc_id_t svc, uint32_t *out_key, void *buf, size_t cap,
+                            size_t *out_len)
 {
     const pf_ops_t *ops = fw_ops();
     struct submit_slot *slot = NULL;
@@ -189,7 +189,7 @@ cm_err_t fw_svc_submit_take(fw_svc_id_t svc, uint32_t *out_key,
     }
     if (slot == NULL) {
         unlock();
-        return CM_ERR_NOT_SUPPORTED;   /* 没有待取的帧 */
+        return CM_ERR_NOT_SUPPORTED; /* 没有待取的帧 */
     }
     if (cap < slot->len) {
         /* 容量不够：**帧不动**，把需要的长度告诉调用方，让它扩容再来。 */
@@ -246,5 +246,5 @@ void fw_submit_forget(void)
         }
     }
     (void)ops;
-    s_lock = NULL;   /* 平台没有 destroy，锁对象随之泄漏一次；下一次 init 再建 */
+    s_lock = NULL; /* 平台没有 destroy，锁对象随之泄漏一次；下一次 init 再建 */
 }

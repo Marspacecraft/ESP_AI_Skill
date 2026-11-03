@@ -14,8 +14,14 @@
 #include "framework/src/fw_internal.h"
 #include "platform/port/pf_ops.h"
 
-static int flag_get(int *p) { return __atomic_load_n(p, __ATOMIC_ACQUIRE); }
-static void flag_set(int *p, int v) { __atomic_store_n(p, v, __ATOMIC_RELEASE); }
+static int flag_get(int *p)
+{
+    return __atomic_load_n(p, __ATOMIC_ACQUIRE);
+}
+static void flag_set(int *p, int v)
+{
+    __atomic_store_n(p, v, __ATOMIC_RELEASE);
+}
 
 /* 场景由主任务先设好，App 的 init() 照场景做事，结果写回全局。 */
 static int g_scenario;
@@ -74,20 +80,19 @@ static cm_err_t res_init(app_ctx_t *ctx)
         break;
 
     case 5: /* 撤销：额度压到当前用量；再要更多就是 QUOTA,已用的不回收 */
-        {
-            void *p = fw_alloc(64u);
+    {
+        void *p = fw_alloc(64u);
 
-            g_rc1 = (p != NULL) ? (int)CM_OK : -1;
-            (void)fw_res_revoke(ctx);
-            fw_res_usage(ctx, &used, &quota, &denied);
-            g_quota = (int)quota;              /* 压到 64,不是 0(0 = 不限) */
-            g_rc2 = (fw_alloc(8u) == NULL) ? 1 : 0;
-            fw_res_usage(ctx, &used, &quota, &denied);
-            g_used = (int)used;                /* 已用 64 不被撤销收回 */
-            g_denied = (int)denied;
-            fw_free(p);
-        }
-        break;
+        g_rc1 = (p != NULL) ? (int)CM_OK : -1;
+        (void)fw_res_revoke(ctx);
+        fw_res_usage(ctx, &used, &quota, &denied);
+        g_quota = (int)quota; /* 压到 64,不是 0(0 = 不限) */
+        g_rc2 = (fw_alloc(8u) == NULL) ? 1 : 0;
+        fw_res_usage(ctx, &used, &quota, &denied);
+        g_used = (int)used; /* 已用 64 不被撤销收回 */
+        g_denied = (int)denied;
+        fw_free(p);
+    } break;
 
     case 6: /* 撤销不杀任务:init 期间状态还是 INIT,所以只撤销,状态由用例读 */
         (void)fw_res_revoke(ctx);
@@ -108,22 +113,21 @@ static cm_err_t res_init(app_ctx_t *ctx)
         break;
 
     case 8: /* 撤销是"上限",不是"拉黑":释放之后同样大小还能再要 */
+    {
+        void *p = fw_alloc(64u);
+
+        (void)fw_res_revoke(ctx);
+        fw_free(p);
         {
-            void *p = fw_alloc(64u);
+            void *q = fw_alloc(64u);
 
-            (void)fw_res_revoke(ctx);
-            fw_free(p);
-            {
-                void *q = fw_alloc(64u);
-
-                g_rc1 = (q != NULL) ? 1 : 0;
-                fw_free(q);
-            }
-            fw_res_usage(ctx, &used, &quota, &denied);
-            g_used = (int)used;
-            g_used2 = (int)quota;
+            g_rc1 = (q != NULL) ? 1 : 0;
+            fw_free(q);
         }
-        break;
+        fw_res_usage(ctx, &used, &quota, &denied);
+        g_used = (int)used;
+        g_used2 = (int)quota;
+    } break;
 
     default:
         break;
@@ -132,7 +136,10 @@ static cm_err_t res_init(app_ctx_t *ctx)
     return CM_OK;
 }
 
-static void res_exit(app_ctx_t *ctx) { (void)ctx; }
+static void res_exit(app_ctx_t *ctx)
+{
+    (void)ctx;
+}
 static void res_task(app_ctx_t *ctx)
 {
     (void)ctx;
@@ -143,8 +150,13 @@ static void res_task(app_ctx_t *ctx)
 }
 
 static const app_desc_t res_desc = {
-    .id = 47u, .name = "res", .init = res_init, .exit = res_exit, .task = res_task,
-    .stack_bytes = APP_STACK_MIN, .flags = APP_FLAG_SYSTEM,
+    .id = 47u,
+    .name = "res",
+    .init = res_init,
+    .exit = res_exit,
+    .task = res_task,
+    .stack_bytes = APP_STACK_MIN,
+    .flags = APP_FLAG_SYSTEM,
 };
 
 static struct fw_app_ctx *start(int scenario)
@@ -212,8 +224,8 @@ TT_CASE(acquire_then_release_frees_the_slot_and_the_quota_usage)
     TT_ASSERT_TRUE(c != NULL);
     TT_ASSERT_INT(1, flag_get(&g_done));
     TT_ASSERT_INT((int)CM_OK, g_rc1);
-    TT_ASSERT_INT(64, g_used);      /* 拿到那一刻，用量确实是 64 */
-    TT_ASSERT_INT(0, g_rc2);        /* 释放之后回到 0 */
+    TT_ASSERT_INT(64, g_used); /* 拿到那一刻，用量确实是 64 */
+    TT_ASSERT_INT(0, g_rc2);   /* 释放之后回到 0 */
     stop_it(c);
     reap(c);
 }
@@ -256,7 +268,7 @@ TT_CASE(boot_lifetime_slot_survives_exit)
     TT_ASSERT_INT(0, (int)released);
     TT_ASSERT_TRUE(c->pub.slots[0] != NULL);
 
-    fw_free(c->pub.slots[0]);   /* 借用者自己交还 */
+    fw_free(c->pub.slots[0]); /* 借用者自己交还 */
     reap(c);
 }
 
@@ -265,9 +277,9 @@ TT_CASE(quota_denial_is_quota_not_nomem)
     struct fw_app_ctx *c = start(4);
 
     TT_ASSERT_TRUE(c != NULL);
-    TT_ASSERT_INT(1, g_rc1);                        /* `fw_alloc(128)` 在 64 的额度下给 NULL */
-    TT_ASSERT_INT((int)CM_ERR_QUOTA, g_rc2);        /* 而 `res_acquire` 能说清是哪种失败 */
-    TT_ASSERT_INT(0, g_used);                       /* 被拒的分配不占额度 */
+    TT_ASSERT_INT(1, g_rc1);                 /* `fw_alloc(128)` 在 64 的额度下给 NULL */
+    TT_ASSERT_INT((int)CM_ERR_QUOTA, g_rc2); /* 而 `res_acquire` 能说清是哪种失败 */
+    TT_ASSERT_INT(0, g_used);                /* 被拒的分配不占额度 */
     /* 两次尝试各记一次拒绝：`fw_alloc(128)` 一次、`res_acquire(128)` 一次。 */
     TT_ASSERT_INT(2, g_denied);
     stop_it(c);
@@ -282,10 +294,10 @@ TT_CASE(revoke_caps_allocations_at_current_usage)
 
     TT_ASSERT_TRUE(c != NULL);
     TT_ASSERT_INT((int)CM_OK, g_rc1);
-    TT_ASSERT_INT(64, g_quota);      /* 撤销 = 把上限压到"此刻已用" */
-    TT_ASSERT_INT(1, g_rc2);         /* 再要 8 字节:拒 */
-    TT_ASSERT_INT(64, g_used);       /* 已占的那 64 字节不被撤销收回 */
-    TT_ASSERT_INT(1, g_denied);      /* 被拒的分配记一次 */
+    TT_ASSERT_INT(64, g_quota); /* 撤销 = 把上限压到"此刻已用" */
+    TT_ASSERT_INT(1, g_rc2);    /* 再要 8 字节:拒 */
+    TT_ASSERT_INT(64, g_used);  /* 已占的那 64 字节不被撤销收回 */
+    TT_ASSERT_INT(1, g_denied); /* 被拒的分配记一次 */
     stop_it(c);
     reap(c);
 }
@@ -297,7 +309,7 @@ TT_CASE(revoke_does_not_stop_the_app)
     c = start(6);
     TT_ASSERT_TRUE(c != NULL);
     TT_ASSERT_INT((int)CM_OK, g_rc1);
-    TT_ASSERT_INT((int)FW_APP_STATE_RUNNING, (int)fw_app_state(c));  /* 撤销不改状态 */
+    TT_ASSERT_INT((int)FW_APP_STATE_RUNNING, (int)fw_app_state(c)); /* 撤销不改状态 */
     TT_ASSERT_INT(0, (int)__atomic_load_n(&c->cancel, __ATOMIC_ACQUIRE));
     /* 撤销之后任务继续跑:计数必须还在涨。
      *
@@ -329,9 +341,9 @@ TT_CASE(revoke_on_zero_usage_is_one_byte_not_unlimited)
     struct fw_app_ctx *c = start(7);
 
     TT_ASSERT_TRUE(c != NULL);
-    TT_ASSERT_INT(1, g_quota);       /* 压到 0 会变成"不限",所以取 1 */
-    TT_ASSERT_INT(1, g_rc1);         /* 2 字节:拒 */
-    TT_ASSERT_INT(1, g_rc2);         /* 1 字节:还允许 */
+    TT_ASSERT_INT(1, g_quota); /* 压到 0 会变成"不限",所以取 1 */
+    TT_ASSERT_INT(1, g_rc1);   /* 2 字节:拒 */
+    TT_ASSERT_INT(1, g_rc2);   /* 1 字节:还允许 */
     stop_it(c);
     reap(c);
 }
@@ -341,9 +353,9 @@ TT_CASE(revoke_is_a_ceiling_not_a_blacklist)
     struct fw_app_ctx *c = start(8);
 
     TT_ASSERT_TRUE(c != NULL);
-    TT_ASSERT_INT(1, g_rc1);         /* 释放之后,同样大小还能再要 */
-    TT_ASSERT_INT(0, g_used);        /* 用掉的那次已归还 */
-    TT_ASSERT_INT(64, g_used2);      /* 上限仍是 64,没被释放动作改掉 */
+    TT_ASSERT_INT(1, g_rc1);    /* 释放之后,同样大小还能再要 */
+    TT_ASSERT_INT(0, g_used);   /* 用掉的那次已归还 */
+    TT_ASSERT_INT(64, g_used2); /* 上限仍是 64,没被释放动作改掉 */
     stop_it(c);
     reap(c);
 }

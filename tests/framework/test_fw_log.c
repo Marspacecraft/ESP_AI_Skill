@@ -55,8 +55,8 @@ TT_CASE(long_body_is_truncated_not_overflowed)
 TT_CASE(mixed_widths_do_not_corrupt_the_stack)
 {
     /* 把常见格式串一次走遍：宽度、精度、有符号、无符号、十六进制、百分号。 */
-    fw_log("int=%d neg=%d u=%u hex=%08x pct=%% str=%s w=%5.2f",
-           -2147483647 - 1, 42, 4294967295u, 0xDEADBEEFu, "s", 1.5);
+    fw_log("int=%d neg=%d u=%u hex=%08x pct=%% str=%s w=%5.2f", -2147483647 - 1, 42, 4294967295u,
+           0xDEADBEEFu, "s", 1.5);
 }
 
 int main(void)

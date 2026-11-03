@@ -213,6 +213,6 @@ void fw_reset(void)
     fw_event_forget();
     fw_boot_forget();
     fw_embed_forget();
-    fw_cap_forget(); /* 板子的实现表指针不该跨 fw_reset() 存活 */
+    fw_cap_forget();  /* 板子的实现表指针不该跨 fw_reset() 存活 */
     fw_uart_forget(); /* "哪一路开着"同理：它是框架侧记账，不是硬件状态 */
 }

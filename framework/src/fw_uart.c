@@ -156,7 +156,8 @@ cm_err_t uart_write(uint32_t port, const void *data, size_t len, size_t *out_wri
         if (chunk > FW_UART_WRITE_CHUNK) {
             chunk = FW_UART_WRITE_CHUNK;
         }
-        n = (ops->write != NULL) ? ops->write(port, p + done, chunk, FW_UART_NO_PROGRESS_MS / 4u) : -1;
+        n = (ops->write != NULL) ? ops->write(port, p + done, chunk, FW_UART_NO_PROGRESS_MS / 4u)
+                                 : -1;
         if (n < 0) {
             if (out_written != NULL) {
                 *out_written = done;

@@ -26,15 +26,27 @@
 #endif
 
 #define T_BUTTON 1u
-#define T_LEAK   2u
-#define P_MAIN   0xA1u
-#define P_ALT    0xB2u
+#define T_LEAK 2u
+#define P_MAIN 0xA1u
+#define P_ALT 0xB2u
 
-static int flag_get(int *p) { return __atomic_load_n(p, __ATOMIC_ACQUIRE); }
-static void flag_set(int *p, int v) { __atomic_store_n(p, v, __ATOMIC_RELEASE); }
-static void flag_add(int *p) { (void)__atomic_add_fetch(p, 1, __ATOMIC_RELAXED); }
+static int flag_get(int *p)
+{
+    return __atomic_load_n(p, __ATOMIC_ACQUIRE);
+}
+static void flag_set(int *p, int v)
+{
+    __atomic_store_n(p, v, __ATOMIC_RELEASE);
+}
+static void flag_add(int *p)
+{
+    (void)__atomic_add_fetch(p, 1, __ATOMIC_RELAXED);
+}
 
-static uint32_t now_ms(void) { return pf_platform_ops()->clock_ms(); }
+static uint32_t now_ms(void)
+{
+    return pf_platform_ops()->clock_ms();
+}
 
 /* ------------------------------------------------------------------ */
 /* 用例 1：声明 → 提交 → 取回                                          */
@@ -42,8 +54,8 @@ static uint32_t now_ms(void) { return pf_platform_ops()->clock_ms(); }
 
 TT_CASE(declare_post_take_roundtrip)
 {
-    unsigned char in[8] = { 1u, 2u, 3u, 4u, 5u, 6u, 7u, 8u };
-    unsigned char out[8] = { 0u };
+    unsigned char in[8] = {1u, 2u, 3u, 4u, 5u, 6u, 7u, 8u};
+    unsigned char out[8] = {0u};
     size_t len = 0u;
 
     fw_reset();
@@ -65,8 +77,8 @@ TT_CASE(declare_post_take_roundtrip)
 
 TT_CASE(isr_post_uses_the_declared_length)
 {
-    unsigned char in[8] = { 9u, 9u, 9u, 9u, 9u, 9u, 9u, 9u };
-    unsigned char out[8] = { 0u };
+    unsigned char in[8] = {9u, 9u, 9u, 9u, 9u, 9u, 9u, 9u};
+    unsigned char out[8] = {0u};
     size_t len = 0u;
 
     fw_reset();
@@ -88,8 +100,15 @@ static int g_wait_rc;
 static int g_wait_spent;
 static int g_wait_diff_done;
 
-static cm_err_t waiter_init(app_ctx_t *ctx) { (void)ctx; return CM_OK; }
-static void waiter_exit(app_ctx_t *ctx) { (void)ctx; }
+static cm_err_t waiter_init(app_ctx_t *ctx)
+{
+    (void)ctx;
+    return CM_OK;
+}
+static void waiter_exit(app_ctx_t *ctx)
+{
+    (void)ctx;
+}
 
 static void waiter_task(app_ctx_t *ctx)
 {
@@ -108,8 +127,13 @@ static void waiter_task(app_ctx_t *ctx)
 }
 
 static const app_desc_t waiter_desc = {
-    .id = 46u, .name = "evt_wait", .init = waiter_init, .exit = waiter_exit,
-    .task = waiter_task, .stack_bytes = APP_STACK_MIN, .flags = APP_FLAG_SYSTEM,
+    .id = 46u,
+    .name = "evt_wait",
+    .init = waiter_init,
+    .exit = waiter_exit,
+    .task = waiter_task,
+    .stack_bytes = APP_STACK_MIN,
+    .flags = APP_FLAG_SYSTEM,
 };
 
 TT_CASE(wait_times_out_on_a_real_timer)
@@ -155,8 +179,8 @@ TT_CASE(wait_times_out_on_a_real_timer)
 
 TT_CASE(queue_full_drops_the_newest)
 {
-    unsigned char v[2] = { 0u, 0u };
-    unsigned char out[2] = { 0u };
+    unsigned char v[2] = {0u, 0u};
+    unsigned char out[2] = {0u};
     size_t len = 0u;
     int full_rc = 0;
 
@@ -183,8 +207,16 @@ TT_CASE(queue_full_drops_the_newest)
 static int g_app_exits;
 static int g_after_wait;
 
-static cm_err_t ev_init(app_ctx_t *ctx) { (void)ctx; return CM_OK; }
-static void ev_exit(app_ctx_t *ctx) { (void)ctx; flag_add(&g_app_exits); }
+static cm_err_t ev_init(app_ctx_t *ctx)
+{
+    (void)ctx;
+    return CM_OK;
+}
+static void ev_exit(app_ctx_t *ctx)
+{
+    (void)ctx;
+    flag_add(&g_app_exits);
+}
 
 static void ev_task(app_ctx_t *ctx)
 {
@@ -194,15 +226,20 @@ static void ev_task(app_ctx_t *ctx)
     (void)ctx;
     /* 5 s 的超时：如果取消位不生效，这个用例会明显变慢而不是悄悄通过。 */
     (void)fw_event_wait(T_BUTTON, buf, sizeof buf, &len, 5000u);
-    flag_set(&g_after_wait, 1);   /* 取消场景下这行不该执行 */
+    flag_set(&g_after_wait, 1); /* 取消场景下这行不该执行 */
     for (;;) {
         fw_delay_block(100u);
     }
 }
 
 static const app_desc_t ev_desc = {
-    .id = 45u, .name = "evt", .init = ev_init, .exit = ev_exit, .task = ev_task,
-    .stack_bytes = APP_STACK_MIN, .flags = APP_FLAG_SYSTEM,
+    .id = 45u,
+    .name = "evt",
+    .init = ev_init,
+    .exit = ev_exit,
+    .task = ev_task,
+    .stack_bytes = APP_STACK_MIN,
+    .flags = APP_FLAG_SYSTEM,
 };
 
 TT_CASE(cancel_interrupts_the_wait)
@@ -235,7 +272,7 @@ TT_CASE(cancel_interrupts_the_wait)
     TT_ASSERT_TRUE((uint32_t)(now_ms() - t0) < 1000u);
     TT_ASSERT_INT((int)FW_APP_STATE_STOPPED, (int)fw_app_state(c));
     TT_ASSERT_INT(1, flag_get(&g_app_exits));
-    TT_ASSERT_INT(0, flag_get(&g_after_wait));   /* wait 之后那行确实没走 */
+    TT_ASSERT_INT(0, flag_get(&g_after_wait)); /* wait 之后那行确实没走 */
 
     fw_live_remove(c);
     fw_app_ctx_free(c);
@@ -281,7 +318,11 @@ static void producer_task(void *arg)
     vTaskDelete(NULL);
 }
 #else
-static void *producer_thread(void *arg) { producer_body((unsigned)(uintptr_t)arg); return NULL; }
+static void *producer_thread(void *arg)
+{
+    producer_body((unsigned)(uintptr_t)arg);
+    return NULL;
+}
 #endif
 
 TT_CASE(two_producers_one_topic_measures_the_loss)
@@ -320,12 +361,10 @@ TT_CASE(two_producers_one_topic_measures_the_loss)
         const int cores = (int)portNUM_PROCESSORS;
         const int c1_core = (cores > 1) ? 1 : 0;
 
-        TT_ASSERT_INT(pdPASS,
-                      xTaskCreatePinnedToCore(producer_task, "prod0", 4096,
-                                              (void *)(uintptr_t)P_MAIN, 1, &h1, 0));
-        TT_ASSERT_INT(pdPASS,
-                      xTaskCreatePinnedToCore(producer_task, "prod1", 4096,
-                                              (void *)(uintptr_t)P_ALT, 1, &h2, c1_core));
+        TT_ASSERT_INT(pdPASS, xTaskCreatePinnedToCore(producer_task, "prod0", 4096,
+                                                      (void *)(uintptr_t)P_MAIN, 1, &h1, 0));
+        TT_ASSERT_INT(pdPASS, xTaskCreatePinnedToCore(producer_task, "prod1", 4096,
+                                                      (void *)(uintptr_t)P_ALT, 1, &h2, c1_core));
     }
 #else
     {
@@ -358,8 +397,8 @@ TT_CASE(two_producers_one_topic_measures_the_loss)
     {
         uint32_t drain_deadline = now_ms();
 
-        while ((uint32_t)(now_ms() - drain_deadline) < 2000u
-               && fw_event_take(T_LEAK, out, sizeof out, &len) == CM_OK) {
+        while ((uint32_t)(now_ms() - drain_deadline) < 2000u &&
+               fw_event_take(T_LEAK, out, sizeof out, &len) == CM_OK) {
             flag_add(&g_taken);
         }
     }
@@ -368,8 +407,8 @@ TT_CASE(two_producers_one_topic_measures_the_loss)
     taken = flag_get(&g_taken);
     lost = ok - taken;
 
-    printf("MULTI_PRODUCER ok=%d rejected=%d taken=%d lost=%d\n", ok, flag_get(&g_rejected),
-           taken, lost);
+    printf("MULTI_PRODUCER ok=%d rejected=%d taken=%d lost=%d\n", ok, flag_get(&g_rejected), taken,
+           lost);
     (void)fflush(stdout);
 
     /* 只断言"不可能违反"的那一条：取回的帧数**不会多于**成功提交的帧数。

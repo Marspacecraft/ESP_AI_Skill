@@ -69,7 +69,7 @@ typedef struct {
     const char *program;
 } tt_state_t;
 
-TT_UNUSED static tt_state_t tt_state = { 0, 0, 0, 0, 0, "test" };
+TT_UNUSED static tt_state_t tt_state = {0, 0, 0, 0, 0, "test"};
 TT_UNUSED static const char *tt_case = "?";
 
 #ifdef TT_HAVE_TIMEOUT
@@ -144,8 +144,8 @@ TT_UNUSED static void tt_run(const char *name, void (*fn)(void))
 
 TT_UNUSED static int tt_summary(void)
 {
-    printf("SUMMARY pass=%d fail=%d skip=%d %s\n",
-           tt_state.pass, tt_state.fail, tt_state.skip, tt_state.program);
+    printf("SUMMARY pass=%d fail=%d skip=%d %s\n", tt_state.pass, tt_state.fail, tt_state.skip,
+           tt_state.program);
     fflush(stdout);
     return tt_state.fail == 0 ? 0 : 1;
 }
@@ -157,69 +157,66 @@ TT_UNUSED static int tt_summary(void)
 
 #define TT_RUN(name) tt_run(#name, tt_case_##name)
 
-#define TT_ASSERT_INT(expect, actual)                                         \
-    do {                                                                      \
-        long long tt_e_ = (long long)(expect);                                \
-        long long tt_a_ = (long long)(actual);                                \
-        if (tt_e_ != tt_a_) {                                                 \
-            char tt_buf_[160];                                                \
-            snprintf(tt_buf_, sizeof tt_buf_,                                 \
-                     "期望 %lld, 实际 %lld", tt_e_, tt_a_);                   \
-            tt_fail(__FILE__, __LINE__, tt_buf_);                             \
-            return;                                                           \
-        }                                                                     \
+#define TT_ASSERT_INT(expect, actual)                                                              \
+    do {                                                                                           \
+        long long tt_e_ = (long long)(expect);                                                     \
+        long long tt_a_ = (long long)(actual);                                                     \
+        if (tt_e_ != tt_a_) {                                                                      \
+            char tt_buf_[160];                                                                     \
+            snprintf(tt_buf_, sizeof tt_buf_, "期望 %lld, 实际 %lld", tt_e_, tt_a_);               \
+            tt_fail(__FILE__, __LINE__, tt_buf_);                                                  \
+            return;                                                                                \
+        }                                                                                          \
     } while (0)
 
-#define TT_ASSERT_TRUE(cond)                                                  \
-    do {                                                                      \
-        if (!(cond)) {                                                        \
-            tt_fail(__FILE__, __LINE__, "期望为真，实际为假");                 \
-            return;                                                           \
-        }                                                                     \
+#define TT_ASSERT_TRUE(cond)                                                                       \
+    do {                                                                                           \
+        if (!(cond)) {                                                                             \
+            tt_fail(__FILE__, __LINE__, "期望为真，实际为假");                                     \
+            return;                                                                                \
+        }                                                                                          \
     } while (0)
 
-#define TT_ASSERT_FALSE(cond)                                                 \
-    do {                                                                      \
-        if ((cond)) {                                                         \
-            tt_fail(__FILE__, __LINE__, "期望为假，实际为真");                 \
-            return;                                                           \
-        }                                                                     \
+#define TT_ASSERT_FALSE(cond)                                                                      \
+    do {                                                                                           \
+        if ((cond)) {                                                                              \
+            tt_fail(__FILE__, __LINE__, "期望为假，实际为真");                                     \
+            return;                                                                                \
+        }                                                                                          \
     } while (0)
 
-#define TT_ASSERT_NOT_NULL(ptr)                                               \
-    do {                                                                      \
-        if ((ptr) == NULL) {                                                  \
-            tt_fail(__FILE__, __LINE__, "期望非 NULL，实际为 NULL");           \
-            return;                                                           \
-        }                                                                     \
+#define TT_ASSERT_NOT_NULL(ptr)                                                                    \
+    do {                                                                                           \
+        if ((ptr) == NULL) {                                                                       \
+            tt_fail(__FILE__, __LINE__, "期望非 NULL，实际为 NULL");                               \
+            return;                                                                                \
+        }                                                                                          \
     } while (0)
 
-#define TT_ASSERT_STR(expect, actual)                                         \
-    do {                                                                      \
-        const char *tt_e_ = (expect);                                         \
-        const char *tt_a_ = (actual);                                         \
-        if (tt_e_ == NULL || tt_a_ == NULL) {                                 \
-            if (tt_e_ != tt_a_) {                                             \
-                char tt_buf_[280];   /* 与下面一支同宽：两段 %.120s + 中文前缀刚好 259 字节 */ \
-                snprintf(tt_buf_, sizeof tt_buf_,                             \
-                         "期望 \"%.120s\", 实际 \"%.120s\"",                   \
-                         tt_e_ ? tt_e_ : "(null)", tt_a_ ? tt_a_ : "(null)"); \
-                tt_fail(__FILE__, __LINE__, tt_buf_);                         \
-                return;                                                       \
-            }                                                                 \
-        } else if (strcmp(tt_e_, tt_a_) != 0) {                               \
-            char tt_buf_[280];                                                \
-            snprintf(tt_buf_, sizeof tt_buf_,                                 \
-                     "期望 \"%.120s\", 实际 \"%.120s\"", tt_e_, tt_a_);        \
-            tt_fail(__FILE__, __LINE__, tt_buf_);                             \
-            return;                                                           \
-        }                                                                     \
+#define TT_ASSERT_STR(expect, actual)                                                              \
+    do {                                                                                           \
+        const char *tt_e_ = (expect);                                                              \
+        const char *tt_a_ = (actual);                                                              \
+        if (tt_e_ == NULL || tt_a_ == NULL) {                                                      \
+            if (tt_e_ != tt_a_) {                                                                  \
+                char tt_buf_[280]; /* 与下面一支同宽：两段 %.120s + 中文前缀刚好 259 字节 */       \
+                snprintf(tt_buf_, sizeof tt_buf_, "期望 \"%.120s\", 实际 \"%.120s\"",              \
+                         tt_e_ ? tt_e_ : "(null)", tt_a_ ? tt_a_ : "(null)");                      \
+                tt_fail(__FILE__, __LINE__, tt_buf_);                                              \
+                return;                                                                            \
+            }                                                                                      \
+        } else if (strcmp(tt_e_, tt_a_) != 0) {                                                    \
+            char tt_buf_[280];                                                                     \
+            snprintf(tt_buf_, sizeof tt_buf_, "期望 \"%.120s\", 实际 \"%.120s\"", tt_e_, tt_a_);   \
+            tt_fail(__FILE__, __LINE__, tt_buf_);                                                  \
+            return;                                                                                \
+        }                                                                                          \
     } while (0)
 
-#define TT_SKIP(reason)                                                       \
-    do {                                                                      \
-        tt_skip(reason);                                                      \
-        return;                                                               \
+#define TT_SKIP(reason)                                                                            \
+    do {                                                                                           \
+        tt_skip(reason);                                                                           \
+        return;                                                                                    \
     } while (0)
 
 #ifdef __cplusplus

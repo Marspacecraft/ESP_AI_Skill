@@ -43,7 +43,7 @@ extern "C" {
 
 /** 当前定义的能力位个数（`PF_CAP_DISPLAY`..`PF_CAP_RTC` 共九位）。
  *  新增能力位时这个数要一起改，`tools/check_caps.py` 会核对目录。 */
-#define PF_CAP_COUNT 10u  /* 位 0..9，见 pf_ops.h 的 PF_CAP_* */
+#define PF_CAP_COUNT 10u /* 位 0..9，见 pf_ops.h 的 PF_CAP_* */
 
 /** 把一项能力的实现表交给框架。
  *

@@ -51,8 +51,7 @@ static int wait_terminal(struct fw_app_ctx *c, uint32_t timeout_ms)
     const pf_ops_t *real = pf_host_fake_ops_get();
     uint32_t t0 = real->clock_ms();
 
-    while (fw_app_state(c) != FW_APP_STATE_STOPPED &&
-           fw_app_state(c) != FW_APP_STATE_FAILED) {
+    while (fw_app_state(c) != FW_APP_STATE_STOPPED && fw_app_state(c) != FW_APP_STATE_FAILED) {
         if ((uint32_t)(real->clock_ms() - t0) > timeout_ms) {
             return 0;
         }
@@ -175,7 +174,7 @@ TT_CASE(restart_uses_a_fresh_id)
     }
 
     TT_ASSERT_INT(FW_APP_STATE_RUNNING, fw_app_state(second));
-    TT_ASSERT_INT(2u, app_demo_inits());   /* 第二次 init 也是真的 */
+    TT_ASSERT_INT(2u, app_demo_inits()); /* 第二次 init 也是真的 */
     TT_ASSERT_TRUE(app_demo_ticks() > ticks_before);
     TT_ASSERT_INT(new_id, second->pub.id);
 

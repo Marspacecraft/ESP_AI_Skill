@@ -84,8 +84,7 @@ cm_err_t fw_svc_unregister_ctx(fw_svc_id_t id, struct fw_app_ctx *owner)
     if (slot < 0) {
         return CM_ERR_NOT_SUPPORTED;
     }
-    if (owner == NULL ||
-        CM_ATOMIC_LOAD(&s_svc_owner[slot], CM_MEM_ACQUIRE) != owner) {
+    if (owner == NULL || CM_ATOMIC_LOAD(&s_svc_owner[slot], CM_MEM_ACQUIRE) != owner) {
         return CM_ERR_STATE;
     }
     CM_ATOMIC_STORE(&s_svc_id[slot], (fw_svc_id_t)0u, CM_MEM_RELEASE);
@@ -101,8 +100,7 @@ struct fw_app_ctx *fw_svc_owner(fw_svc_id_t id)
         return NULL;
     }
     slot = find_slot(id);
-    return (slot < 0) ? NULL
-                      : CM_ATOMIC_LOAD(&s_svc_owner[slot], CM_MEM_ACQUIRE);
+    return (slot < 0) ? NULL : CM_ATOMIC_LOAD(&s_svc_owner[slot], CM_MEM_ACQUIRE);
 }
 
 cm_err_t fw_svc_ready(fw_svc_id_t id)
@@ -113,11 +111,11 @@ cm_err_t fw_svc_ready(fw_svc_id_t id)
         return CM_ERR_INVALID;
     }
     if (find_slot(id) < 0) {
-        return CM_ERR_NOT_SUPPORTED;   /* 从来没人注册：这块板/这个产品没这能力 */
+        return CM_ERR_NOT_SUPPORTED; /* 从来没人注册：这块板/这个产品没这能力 */
     }
     owner = fw_svc_owner(id);
     if (owner == NULL) {
-        return CM_ERR_UNAVAILABLE;     /* 注册过，但提供者已经没了：可以重试 */
+        return CM_ERR_UNAVAILABLE; /* 注册过，但提供者已经没了：可以重试 */
     }
     /* 只有"正在跑"才算可用：INIT 还没准备好，STOPPING/STOPPED/FAILED 都不能用。 */
     if (fw_app_state(owner) != FW_APP_STATE_RUNNING) {

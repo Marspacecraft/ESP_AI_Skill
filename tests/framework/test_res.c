@@ -11,12 +11,12 @@
 #include "platform/host-fake/pf_host_fake.h"
 
 static struct fw_app_ctx *g_ctx;
-static int g_acquired;          /* init 里成功 acquire 的次数 */
-static int g_exit_saw_slot;     /* exit() 里 slots[0] 还非空吗 */
-static int g_probe_ok;          /* 槽位里的内存真的可读写 */
-static int g_busy_seen;         /* 往非空槽位再 acquire 是否 BUSY */
-static int g_bad_seen;          /* 参数非法是否 INVALID */
-static int g_reuse_ok;          /* release 之后同一个槽位能再 acquire */
+static int g_acquired;      /* init 里成功 acquire 的次数 */
+static int g_exit_saw_slot; /* exit() 里 slots[0] 还非空吗 */
+static int g_probe_ok;      /* 槽位里的内存真的可读写 */
+static int g_busy_seen;     /* 往非空槽位再 acquire 是否 BUSY */
+static int g_bad_seen;      /* 参数非法是否 INVALID */
+static int g_reuse_ok;      /* release 之后同一个槽位能再 acquire */
 
 static void idle_task(app_ctx_t *ctx)
 {
@@ -70,11 +70,11 @@ static cm_err_t reuse_init(app_ctx_t *ctx)
     if (res_acquire(&ctx->slots[0], RES_KIND_MEM, 16u, RES_LIFE_APP) != CM_OK) {
         return CM_ERR_NOMEM;
     }
-    res_release(&ctx->slots[0]);           /* 提前还 */
-    if (ctx->slots[0] != NULL) {           /* 还完槽位必须立刻变空 */
+    res_release(&ctx->slots[0]); /* 提前还 */
+    if (ctx->slots[0] != NULL) { /* 还完槽位必须立刻变空 */
         return CM_ERR_STATE;
     }
-    res_release(&ctx->slots[0]);           /* 重复还：无操作，不许炸 */
+    res_release(&ctx->slots[0]); /* 重复还：无操作，不许炸 */
     if (res_acquire(&ctx->slots[0], RES_KIND_MEM, 24u, RES_LIFE_APP) != CM_OK) {
         return CM_ERR_NOMEM;
     }
@@ -123,8 +123,7 @@ static void stop_all(void)
 
         fw_app_request_cancel(c);
         for (int i = 0; i < 400; i++) {
-            if (fw_app_state(c) == FW_APP_STATE_STOPPED ||
-                fw_app_state(c) == FW_APP_STATE_FAILED) {
+            if (fw_app_state(c) == FW_APP_STATE_STOPPED || fw_app_state(c) == FW_APP_STATE_FAILED) {
                 break;
             }
             pf_host_fake_ops_get()->sleep_ms(2u);
@@ -179,9 +178,9 @@ TT_CASE(exit_releases_app_lifetime_slots_exactly_once)
     wait_for(&g_acquired, 3);
 
     TT_ASSERT_INT(3, g_acquired);
-    TT_ASSERT_INT(1, g_probe_ok);   /* 槽位里的内存真的可读写 */
-    TT_ASSERT_INT(1, g_busy_seen);  /* 非空槽位拒绝覆盖 */
-    TT_ASSERT_INT(1, g_bad_seen);   /* 坏参数 INVALID 且不留登记 */
+    TT_ASSERT_INT(1, g_probe_ok);                        /* 槽位里的内存真的可读写 */
+    TT_ASSERT_INT(1, g_busy_seen);                       /* 非空槽位拒绝覆盖 */
+    TT_ASSERT_INT(1, g_bad_seen);                        /* 坏参数 INVALID 且不留登记 */
     TT_ASSERT_INT(0, (int)fw_app_slots_released(g_ctx)); /* 还在跑：一个都没回收 */
 
     fw_app_request_cancel(g_ctx);
@@ -192,7 +191,7 @@ TT_CASE(exit_releases_app_lifetime_slots_exactly_once)
         pf_host_fake_ops_get()->sleep_ms(2u);
     }
     TT_ASSERT_INT((int)FW_APP_STATE_STOPPED, (int)fw_app_state(g_ctx));
-    TT_ASSERT_INT(1, g_exit_saw_slot); /* exit() 里槽位还在 → 回收发生在其后 */
+    TT_ASSERT_INT(1, g_exit_saw_slot);                   /* exit() 里槽位还在 → 回收发生在其后 */
     TT_ASSERT_INT(3, (int)fw_app_slots_released(g_ctx)); /* 恰好三个 */
     for (uint32_t i = 0; i < APP_CTX_SLOTS; i++) {
         TT_ASSERT_TRUE(g_ctx->pub.slots[i] == NULL);
@@ -232,8 +231,7 @@ TT_CASE(acquire_outside_an_app_task_is_state)
     g_ctx = start(&boot_desc, 31u);
     TT_ASSERT_NOT_NULL(g_ctx);
     /* 外部线程没有"当前上下文"：槽位归属无从判断，直接拒绝。 */
-    TT_ASSERT_INT(CM_ERR_STATE,
-                  res_acquire(&g_ctx->pub.slots[2], RES_KIND_MEM, 8u, RES_LIFE_APP));
+    TT_ASSERT_INT(CM_ERR_STATE, res_acquire(&g_ctx->pub.slots[2], RES_KIND_MEM, 8u, RES_LIFE_APP));
     TT_ASSERT_TRUE(g_ctx->pub.slots[2] == NULL);
     res_release(&g_ctx->pub.slots[2]); /* 空槽位：无操作 */
     stop_all();

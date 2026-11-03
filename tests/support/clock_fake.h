@@ -38,9 +38,9 @@
 #endif
 
 CF_UNUSED static struct {
-    pf_ops_t ops;      /* 给框架看的表：除时钟两项外与真表一致 */
+    pf_ops_t ops;             /* 给框架看的表：除时钟两项外与真表一致 */
     void (*sleep_hook)(void); /* 每次 sleep 之后调一次；取消注入靠它（2.5b） */
-    uint32_t now_ms;   /* 虚拟时间 */
+    uint32_t now_ms;          /* 虚拟时间 */
     uint32_t sleep_calls;
     uint32_t sleep_total_ms;
     uint32_t max_slice_ms;

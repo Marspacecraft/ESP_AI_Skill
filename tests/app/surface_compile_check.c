@@ -25,12 +25,11 @@ static void demo_task(app_ctx_t *ctx)
     }
 }
 
-static const app_desc_t demo_desc = {
-    2u, "demo", demo_init, demo_exit, demo_task, 0u, APP_STACK_MIN
-};
+static const app_desc_t demo_desc = {2u,        "demo", demo_init,    demo_exit,
+                                     demo_task, 0u,     APP_STACK_MIN};
 
-static const app_desc_t *const demo_apps[] = { &demo_desc };
-static const fw_manifest_t demo_manifest = { demo_apps, 1u };
+static const app_desc_t *const demo_apps[] = {&demo_desc};
+static const fw_manifest_t demo_manifest = {demo_apps, 1u};
 
 int main(void)
 {

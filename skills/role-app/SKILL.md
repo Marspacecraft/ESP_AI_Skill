@@ -42,7 +42,7 @@ App 能 include 的只有六个头：`api/af_api/{app,res,evt,svc,cap,uart}.h`�
 
 ## 2. 一个 App 的骨架
 
-复制 `apps/demo/`（82 行，含注释）的形状：
+复制 `apps/demo/`（78 行，含注释）的形状：
 
 ```c
 static cm_err_t my_init(app_ctx_t *ctx) { (void)ctx; return CM_OK; }
@@ -122,6 +122,6 @@ const app_desc_t my_desc = {
 | 服务注册与提交型接口 | `api/af_api/svc.h` |
 | 拉起/停止/回收别的 App（管理器） | `api/af_api/mgr.h` |
 | 事件 | `api/af_api/evt.h` |
-| 最短样板 | `apps/demo/app_demo.c`（82 行） |
+| 最短样板 | `apps/demo/app_demo.c`（78 行） |
 | 全局规矩、四行交付、停手条件 | [`AGENTS.md`](../../AGENTS.md) |
 | 命令、失败速查 | [`docs/build-and-usage.md`](../../docs/build-and-usage.md) §6/§10 |

@@ -92,8 +92,8 @@ static const app_desc_t s_worker = {
     .stack_bytes = APP_STACK_MIN,
 };
 
-static const app_desc_t *const s_apps[] = { &s_probe };
-static const fw_manifest_t s_man = { s_apps, 1u };
+static const app_desc_t *const s_apps[] = {&s_probe};
+static const fw_manifest_t s_man = {s_apps, 1u};
 
 static void reset_all(void)
 {
@@ -174,7 +174,7 @@ TT_CASE(board_hook_publishes_one_port)
 TT_CASE(open_validates_arguments_and_refuses_double_open)
 {
     boot(true);
-    TT_ASSERT_INT(CM_ERR_INVALID, uart_open(1u, 115200u));  /* 只有一路 */
+    TT_ASSERT_INT(CM_ERR_INVALID, uart_open(1u, 115200u)); /* 只有一路 */
     TT_ASSERT_INT(CM_ERR_INVALID, uart_open(UART_PORT_APP, 0u));
     TT_ASSERT_INT(CM_OK, uart_open(UART_PORT_APP, 115200u));
     TT_ASSERT_INT(CM_ERR_BUSY, uart_open(UART_PORT_APP, 115200u));
@@ -184,7 +184,7 @@ TT_CASE(open_validates_arguments_and_refuses_double_open)
 
 TT_CASE(write_moves_every_byte_and_reports_count)
 {
-    char got[16] = { 0 };
+    char got[16] = {0};
     size_t n;
 
     boot(true);

@@ -21,9 +21,8 @@ cm_err_t fw_ops_check(const pf_ops_t *ops)
     /* 九项一个都不能少：允许"可选成员"会让框架里长出永远得不到测试的分支，
      * 而这块板到底能不能用，应该在 `fw_init()` 这一行就答完。 */
     if (ops->caps == NULL || ops->mem_alloc == NULL || ops->mem_free == NULL ||
-        ops->clock_ms == NULL || ops->sleep_ms == NULL ||
-        ops->mutex_create == NULL || ops->mutex_take == NULL ||
-        ops->mutex_give == NULL || ops->task_create == NULL ||
+        ops->clock_ms == NULL || ops->sleep_ms == NULL || ops->mutex_create == NULL ||
+        ops->mutex_take == NULL || ops->mutex_give == NULL || ops->task_create == NULL ||
         ops->task_exit_current == NULL) {
         return CM_ERR_INVALID;
     }

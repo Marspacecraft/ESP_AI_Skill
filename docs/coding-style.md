@@ -205,12 +205,15 @@ platform/host-fake/pf_host_fake.h → ESP_AI_SKILL_PF_HOST_FAKE_H   /* 简写，
 ## 8. 排版
 
 - 缩进 **4 个空格**，不用 tab。
-- 大括号**不换行**（K&R）：
+- **控制语句**的大括号与语句同行；**函数定义**的大括号另起一行（clang-format 的 `Linux` 风格）：
 
 ```c
-for (;;) {
-    do_work();
-    fw_delay_block(100u);
+static bool port_open(uint32_t port)
+{
+    if (port >= ops()->count) {
+        return false;
+    }
+    return true;
 }
 ```
 
@@ -220,7 +223,16 @@ for (;;) {
 - 指针 `*` 贴变量名：`const char *name`。
 - 一元运算符贴操作数；二元运算符两侧空格；`,` 后空格。
 - 不留行尾空白；文件以单个换行结尾。
-- 没有 `.clang-format`，所以**照抄邻近文件**；要引入格式化工具，先改本文再改全仓（一次性）。
+- **排版不靠记**：仓库根有 [`.clang-format`](../.clang-format)，它编码的就是本节。
+
+```bash
+xcrun clang-format -i <file>...            # macOS 自带（Xcode 工具链）
+git ls-files '*.c' '*.h' | xargs xcrun clang-format -i    # 全仓
+```
+
+  配置里有三项是刻意非默认的：`BreakBeforeBraces: Linux`（不是 LLVM 的 `Attach`）、
+  `ReflowComments: false`（不重排中文注释）、`SortIncludes: false`（include 顺序有含义）。
+  **不要**为了"更整齐"把它们改回默认值。
 
 ---
 
@@ -406,10 +418,16 @@ static uint32_t g_slot_lock;  /* 护 s_live[]：0 空闲 / 1 占用，只用 CM_
 | 5 | `platform/host-fake/pf_host_fake.c` | 标准库头在本仓头之后 | 已按 §7.3 调整（自己的头 → 标准库 → 本仓头） |
 | 6 | `docs/pf-ops-decision.md`、`实施步骤.md` | 写"四项注释" | 已统一为"四段" |
 
-**仍未做（需要单独一次提交）**：
+### 13.1 格式化工具（已引入）
 
-| # | 内容 | 为什么单独 |
+| # | 内容 | 结论 |
 |---|---|---|
-| 7 | 引入 `.clang-format`（`BasedOnStyle: LLVM`、`IndentWidth: 4`、`ColumnLimit: 100`、`BreakBeforeBraces: Attach`）并对全仓格式化 | 会产生覆盖全仓的纯格式 diff，夹在功能提交里没人看得清改了什么；本机没有 `clang-format`，要先装 |
+| 7 | [`.clang-format`](../.clang-format)（仓库根）+ 全仓格式化 | **已做**，2026-11-03 单独一次提交：`git ls-files '*.c' '*.h'` 共 45 个文件被重排（553 增 / 436 删），`./build.sh run` 仍是 179 条 + 五道门禁 PASS |
 
-在这条没做之前，**排版一律照抄邻近文件**（§8 的规则仍然有效，只是靠人看）。
+顺带记两条当时的判断（写给未来的自己）：
+
+- 配置按**现有写法**反推，不是按 clang-format 的默认风格套：函数花括号另起一行、
+  控制语句同行、不重排中文注释、不重排 include。用默认 LLVM 风格会让 66 个文件全变，
+  连函数签名都挪位置，那是**制造** diff 而不是收敛它。
+- 本机没有 PATH 上的 `clang-format`，但 `xcrun clang-format` 一直可用（Xcode 工具链）。
+  上一版 §13 写的"本机没有 clang-format，要先装"是错的——只查了 `which`，没查 `xcrun`。

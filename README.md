@@ -108,7 +108,7 @@ idf.py -p /dev/cu.usbmodem101 flash          # 需要授权；烧录前先杀掉
 
 ## 一个 App 的样子
 
-`apps/demo/app_demo.c`（82 行，含注释）的核心就这些：
+`apps/demo/app_demo.c`（78 行，含注释）的核心就这些：
 
 ```c
 static cm_err_t demo_init(app_ctx_t *ctx) { (void)ctx; return CM_OK; }
@@ -186,7 +186,7 @@ python3 tools/check_workspace_policy.py --as 2 apps/demo/app_demo.c   # ALLOW/DE
 | **服务注册表** | App 之间不链接符号，按 id 找人；`NOT_SUPPORTED` / `UNAVAILABLE` 是两件事 |
 | **能力位** | `pf_ops_t.caps()` 报"这块板有什么硬件"；有位 ≠ 有接口可调 |
 | **tag** | 分层写权限（1 系统 App / 2 业务 App / 3 框架 / 4 平台 / 5 接口） |
-| **nobody** | 考卷类文件（`tools/`、`build.sh`、`policy.txt`、`AGENTS.md`、`skills/`）：AI 只读 |
+| **nobody** | 考卷类文件（`tools/`、`build.sh`、`policy.txt`、`AGENTS.md`、`skills/`、`.clang-format`）：AI 只读 |
 | **四行交付** | Build / Host tests / Device tests / Unverified；缺一段视为没交付 |
 
 ---

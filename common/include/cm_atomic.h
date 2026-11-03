@@ -37,18 +37,18 @@ typedef enum cm_mem_order_e {
  * 若哪天要换实现，**改这里**，调用方一行不用动。 */
 
 /** 原子读：返回读到的那份值。`p` 非 NULL（调用方保证）。 */
-#define CM_ATOMIC_LOAD(p, order)          __atomic_load_n((p), (int)(order))
+#define CM_ATOMIC_LOAD(p, order) __atomic_load_n((p), (int)(order))
 
 /** 原子写：无返回值。`p` 非 NULL。 */
-#define CM_ATOMIC_STORE(p, v, order)      __atomic_store_n((p), (v), (int)(order))
+#define CM_ATOMIC_STORE(p, v, order) __atomic_store_n((p), (v), (int)(order))
 
 /** 原子交换：返回**旧值**。"恰好一次"这类语义靠它。 */
-#define CM_ATOMIC_EXCHANGE(p, v, order)   __atomic_exchange_n((p), (v), (int)(order))
+#define CM_ATOMIC_EXCHANGE(p, v, order) __atomic_exchange_n((p), (v), (int)(order))
 
 /** 原子加：返回加之后的**新值**（配额判定用它"先加后判再回滚"）。 */
-#define CM_ATOMIC_ADD_FETCH(p, v, order)  __atomic_add_fetch((p), (v), (int)(order))
+#define CM_ATOMIC_ADD_FETCH(p, v, order) __atomic_add_fetch((p), (v), (int)(order))
 
 /** 原子减：返回减之后的**新值**。 */
-#define CM_ATOMIC_SUB_FETCH(p, v, order)  __atomic_sub_fetch((p), (v), (int)(order))
+#define CM_ATOMIC_SUB_FETCH(p, v, order) __atomic_sub_fetch((p), (v), (int)(order))
 
 #endif /* ESP_AI_SKILL_CM_ATOMIC_H */

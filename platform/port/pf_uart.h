@@ -30,7 +30,7 @@ extern "C" {
 #endif
 
 #define PF_UART_OPS_VERSION 1u
-#define PF_UART_MAX_PORTS   2u /* 逻辑端口上限；v1 实际只用 1 路 */
+#define PF_UART_MAX_PORTS 2u /* 逻辑端口上限；v1 实际只用 1 路 */
 
 /** 串口实现表。板子在 `pf_platform_boot()` 里把它的地址交给
  *  `fw_cap_register(PF_CAP_UART, &ops)`。 */

@@ -21,7 +21,7 @@
 #include "esp_timer.h"
 #include "driver/uart.h"
 
-#include "pf_cap.h"  /* platform/port 已在 include 路径上（与 pf_ops.h 相同） */
+#include "pf_cap.h" /* platform/port 已在 include 路径上（与 pf_ops.h 相同） */
 #include "pf_uart.h"
 
 /** 框架任务用的优先级。App 不决定优先级，平台给一个固定档。 */
@@ -162,8 +162,8 @@ static pf_task_t *esp_port_task_create(const pf_task_desc_t *desc)
     boot->arg = desc->arg;
 
     if (xTaskCreate(esp_port_task_trampoline, (desc->name != NULL) ? desc->name : "app",
-                    (uint32_t)(desc->stack_bytes / sizeof(StackType_t)), boot,
-                    ESP_PORT_TASK_PRIO, &t->h) != pdPASS) {
+                    (uint32_t)(desc->stack_bytes / sizeof(StackType_t)), boot, ESP_PORT_TASK_PRIO,
+                    &t->h) != pdPASS) {
         free(boot);
         free(t);
         return NULL;
@@ -181,16 +181,15 @@ static void esp_port_task_exit_current(void)
 
 /* ---------------- 能力位 ---------------- */
 
-
 /* ── 应用串口（PF_CAP_UART，见 platform/port/pf_uart.h） ─────────────
  * 用 UART1（UART0 被控制台占着）。引脚是**板级约定**，不是框架约定：
  *   TX = GPIO21，RX = GPIO20
  * 换板/换个插座就把下面两个宏改成你那块板真正引出来的两根线。
  * 它们没接到外设时也能验：写出去没人收，`read` 会如实超时。
  */
-#define UART_APP_PORT   UART_NUM_1
-#define UART_APP_TX     21
-#define UART_APP_RX     20
+#define UART_APP_PORT UART_NUM_1
+#define UART_APP_TX 21
+#define UART_APP_RX 20
 
 static int s_uart_opened;
 
@@ -200,7 +199,7 @@ static int app_uart_open(uint32_t port, uint32_t baud)
      * 这种"硬件流控关掉时按 0 校验"的字段，未初始化时它是栈上的垃圾值——
      * S3 上实测会直接 `E uart: uart_param_config(995): rx flow thresh error`，
      * 而 C3 上碰巧是 0 所以一路绿灯。**"在 C3 上过了"不等于"这份代码是对的"。** */
-    uart_config_t cfg = { 0 };
+    uart_config_t cfg = {0};
     esp_err_t err;
 
     if (port != 0u || baud == 0u || s_uart_opened) {
@@ -218,8 +217,8 @@ static int app_uart_open(uint32_t port, uint32_t baud)
     cfg.source_clk = UART_SCLK_DEFAULT;
     err = uart_param_config(UART_APP_PORT, &cfg);
     if (err == ESP_OK) {
-        err = uart_set_pin(UART_APP_PORT, UART_APP_TX, UART_APP_RX,
-                           UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
+        err = uart_set_pin(UART_APP_PORT, UART_APP_TX, UART_APP_RX, UART_PIN_NO_CHANGE,
+                           UART_PIN_NO_CHANGE);
     }
     if (err != ESP_OK) {
         (void)uart_driver_delete(UART_APP_PORT);

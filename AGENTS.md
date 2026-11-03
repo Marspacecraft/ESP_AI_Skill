@@ -31,7 +31,7 @@ App 门面 → 框架切片实现）。
 |---|---|
 | **项目总览（是什么、为什么、现在到哪）** | [`README.md`](README.md)（10 节：三个赌注、六条机制、有什么/没什么、术语、已知边界） |
 | **构建框架怎么搭的、命令怎么用** | [`docs/build-and-usage.md`](docs/build-and-usage.md)（详细版：`build.sh` 行为、五道门禁、写 App、接板、真机流程、失败速查） |
-| 一个 App 最短能多短 | `apps/demo/app_demo.c`（82 行，含注释） |
+| 一个 App 最短能多短 | `apps/demo/app_demo.c`（78 行，含注释） |
 | App 能调什么 | `api/af_api/app.h`（生命周期 + 使用面）、`res.h`、`evt.h`、`svc.h`、`cap.h`、`uart.h`；管理器另加 `mgr.h`（控制面） |
 | 板子要实现什么 | `platform/port/pf_ops.h`（九项，每项一段注释，**这是接板唯一必读**） |
 | 契约为什么这么定 | `docs/pf-ops-decision.md` |
@@ -66,9 +66,10 @@ python3 tools/check_workspace_policy.py --as 2 apps/demo/app_demo.c   # ALLOW/DE
 
 ## 3. 五条硬规矩
 
-1. **不改 `tools/`、`build.sh`、`policy.txt`、`AGENTS.md`、`skills/`**——这五个是考卷本身，归 `nobody`。
+1. **不改 `tools/`、`build.sh`、`.clang-format`、`policy.txt`、`AGENTS.md`、`skills/`**——这六个是考卷本身，归 `nobody`。
    发现它们有问题：**报告，不要自己改**。
-   把 `skills/` 也锁上，是因为让 AI 改"给 AI 看的说明书"，它会把约束改写成自己做得到的样子。
+   把 `skills/` 也锁上，是因为让 AI 改"给 AI 看的说明书"，它会把约束改写成自己做得到的样子；
+   `.clang-format` 锁上，是因为改它等于把全仓的排版 diff 一起改掉。
 2. **不跨层**：`apps → framework → platform`；框架不知道有哪些 App、也不知道板是谁
    （靠 `app_manifest_primary()` / `pf_platform_ops()` 两个钩子）。
 3. **可阻塞接口一律伪阻塞**：`fw_delay_block()` 之后的代码可能永远不执行。清理只能写在
@@ -167,7 +168,7 @@ Unverified:   还有什么没验证、为什么
 
 命中任一条，**停下来报告**（格式：我在做什么 / 撞到哪条 / 为什么不能自己解决 / 选项与代价 / 我建议哪个 / 回复前不动哪些文件）：
 
-- 要改 `tools/`、`build.sh`、`policy.txt`、`AGENTS.md`、`skills/`；
+- 要改 `tools/`、`build.sh`、`.clang-format`、`policy.txt`、`AGENTS.md`、`skills/`；
 - 要改分层方向或 `api/` 的公开签名；
 - 需要某个能力但 `api/` 里没有（例如显示）——报告，别自己造；
 - 要烧录真机、要提交、要动别人的仓库；

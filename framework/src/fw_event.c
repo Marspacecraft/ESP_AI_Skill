@@ -19,10 +19,10 @@ struct fw_evt_slot {
 };
 
 struct fw_evt_topic {
-    uint32_t head;      /* 下一个要写的序号（生产者独占） */
-    uint32_t tail;      /* 下一个要读的序号（消费者独占） */
-    uint32_t dropped;   /* 因为满而丢弃的个数（诊断用） */
-    size_t payload;     /* 声明时定下的负载大小；0 = 未声明 */
+    uint32_t head;    /* 下一个要写的序号（生产者独占） */
+    uint32_t tail;    /* 下一个要读的序号（消费者独占） */
+    uint32_t dropped; /* 因为满而丢弃的个数（诊断用） */
+    size_t payload;   /* 声明时定下的负载大小；0 = 未声明 */
     struct fw_evt_slot slots[FW_EVENT_DEPTH];
 };
 
@@ -139,7 +139,7 @@ static cm_err_t event_get(evt_topic_t topic, void *buf, size_t cap, size_t *out_
         return CM_ERR_TIMEOUT; /* "现在没有"，不是错误 */
     }
     if (pending > FW_EVENT_DEPTH) {
-        return CM_ERR_STATE;   /* 生产者违反了单写者前提：head 被回退过 */
+        return CM_ERR_STATE; /* 生产者违反了单写者前提：head 被回退过 */
     }
     /* `pending == FW_EVENT_DEPTH` 是**满**，不是坏——照常取。 */
     slot = &t->slots[tl % FW_EVENT_DEPTH];

@@ -72,8 +72,7 @@ static void stop_all(void)
 
         fw_app_request_cancel(c);
         for (int i = 0; i < 800; i++) {
-            if (fw_app_state(c) == FW_APP_STATE_STOPPED ||
-                fw_app_state(c) == FW_APP_STATE_FAILED) {
+            if (fw_app_state(c) == FW_APP_STATE_STOPPED || fw_app_state(c) == FW_APP_STATE_FAILED) {
                 break;
             }
             pf_host_fake_ops_get()->sleep_ms(2u);
@@ -162,7 +161,7 @@ TT_CASE(silent_busy_loop_is_detected_but_cannot_be_stopped)
     TT_ASSERT_NOT_NULL(g_ctx);
     pf_host_fake_ops_get()->sleep_ms(80u);
     fw_app_heartbeat(&g_ctx->pub, &seq, &age);
-    TT_ASSERT_INT(0, (int)seq);          /* 一次都没喂过 */
+    TT_ASSERT_INT(0, (int)seq); /* 一次都没喂过 */
     TT_ASSERT_INT(1, fw_app_is_stalled(&g_ctx->pub, 50u));
     /* 注意：这里**不停**它——发了取消请求它也不理，这正是"只能重启整机"的那类。 */
     g_ctx = NULL;

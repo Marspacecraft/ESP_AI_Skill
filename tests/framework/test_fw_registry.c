@@ -28,15 +28,14 @@ static void cb_task(app_ctx_t *ctx)
 }
 
 /* 字段顺序必须与 app_desc_t 一致：id, name, init, exit, task, flags, stack_bytes */
-#define DESC(ident, nm) \
-    { (ident), (nm), cb_init, cb_exit, cb_task, 0u, APP_STACK_MIN }
+#define DESC(ident, nm) {(ident), (nm), cb_init, cb_exit, cb_task, 0u, APP_STACK_MIN}
 
 static const app_desc_t app_a = DESC(2u, "a");
 static const app_desc_t app_b = DESC(3u, "b");
 static const app_desc_t app_c = DESC(4u, "c");
 
-static const app_desc_t *const list_ab[] = { &app_a, &app_b };
-static const app_desc_t *const list_c[] = { &app_c };
+static const app_desc_t *const list_ab[] = {&app_a, &app_b};
+static const app_desc_t *const list_c[] = {&app_c};
 
 /* 平台表副本：用来注入"坏表"，不改动 host-fake 自己那张真表。 */
 static pf_ops_t bad_ops;
@@ -103,7 +102,7 @@ TT_CASE(bind_twice_is_state_error)
 
 TT_CASE(init_without_bind_is_state_error)
 {
-    const fw_manifest_t m = { list_ab, 2u };
+    const fw_manifest_t m = {list_ab, 2u};
 
     fw_reset();
     TT_ASSERT_INT(CM_ERR_STATE, fw_init(&m, 1u));
@@ -118,7 +117,7 @@ TT_CASE(init_null_manifests_is_invalid)
 
 TT_CASE(init_zero_count_is_invalid)
 {
-    const fw_manifest_t m = { list_ab, 2u };
+    const fw_manifest_t m = {list_ab, 2u};
 
     fw_reset();
     use_good_platform();
@@ -129,7 +128,7 @@ TT_CASE(init_zero_count_is_invalid)
 
 TT_CASE(merge_two_manifests)
 {
-    const fw_manifest_t ms[2] = { { list_ab, 2u }, { list_c, 1u } };
+    const fw_manifest_t ms[2] = {{list_ab, 2u}, {list_c, 1u}};
 
     fw_reset();
     use_good_platform();
@@ -144,9 +143,9 @@ TT_CASE(merge_two_manifests)
 TT_CASE(empty_manifest_is_legal_but_not_whole_boot)
 {
     /* 一份清单是空的、另一份有 App：合法（某个模块这次没编进来）。 */
-    const fw_manifest_t empty = { NULL, 0u };
-    const fw_manifest_t full = { list_c, 1u };
-    const fw_manifest_t ms[2] = { empty, full }; /* NOLINT：故意先空后有 */
+    const fw_manifest_t empty = {NULL, 0u};
+    const fw_manifest_t full = {list_c, 1u};
+    const fw_manifest_t ms[2] = {empty, full}; /* NOLINT：故意先空后有 */
 
     fw_reset();
     use_good_platform();
@@ -156,7 +155,7 @@ TT_CASE(empty_manifest_is_legal_but_not_whole_boot)
 
 TT_CASE(all_manifests_empty_is_invalid)
 {
-    const fw_manifest_t empty = { NULL, 0u };
+    const fw_manifest_t empty = {NULL, 0u};
 
     fw_reset();
     use_good_platform();
@@ -167,8 +166,8 @@ TT_CASE(all_manifests_empty_is_invalid)
 
 TT_CASE(duplicate_id_across_manifests_blocks_boot)
 {
-    const app_desc_t *const dup[] = { &app_a }; /* 同一份 a 再登记一次 */
-    const fw_manifest_t ms[2] = { { list_ab, 2u }, { dup, 1u } };
+    const app_desc_t *const dup[] = {&app_a}; /* 同一份 a 再登记一次 */
+    const fw_manifest_t ms[2] = {{list_ab, 2u}, {dup, 1u}};
 
     fw_reset();
     use_good_platform();
@@ -181,67 +180,67 @@ TT_CASE(duplicate_id_across_manifests_blocks_boot)
 TT_CASE(id_zero_is_invalid)
 {
     const app_desc_t bad = DESC(APP_ID_INVALID, "bad0");
-    const app_desc_t *const one[] = { &bad };
+    const app_desc_t *const one[] = {&bad};
 
     fw_reset();
     use_good_platform();
-    TT_ASSERT_INT(CM_ERR_INVALID, fw_init(&(fw_manifest_t){ one, 1u }, 1u));
+    TT_ASSERT_INT(CM_ERR_INVALID, fw_init(&(fw_manifest_t){one, 1u}, 1u));
 }
 
 TT_CASE(id_manager_is_invalid_for_normal_app)
 {
     const app_desc_t bad = DESC(APP_ID_MANAGER, "bad1");
-    const app_desc_t *const one[] = { &bad };
+    const app_desc_t *const one[] = {&bad};
 
     fw_reset();
     use_good_platform();
-    TT_ASSERT_INT(CM_ERR_INVALID, fw_init(&(fw_manifest_t){ one, 1u }, 1u));
+    TT_ASSERT_INT(CM_ERR_INVALID, fw_init(&(fw_manifest_t){one, 1u}, 1u));
 }
 
 TT_CASE(missing_task_is_invalid)
 {
-    const app_desc_t bad = { 5u, "bad5", cb_init, cb_exit, NULL, 0u, APP_STACK_MIN };
-    const app_desc_t *const one[] = { &bad };
+    const app_desc_t bad = {5u, "bad5", cb_init, cb_exit, NULL, 0u, APP_STACK_MIN};
+    const app_desc_t *const one[] = {&bad};
 
     fw_reset();
     use_good_platform();
-    TT_ASSERT_INT(CM_ERR_INVALID, fw_init(&(fw_manifest_t){ one, 1u }, 1u));
+    TT_ASSERT_INT(CM_ERR_INVALID, fw_init(&(fw_manifest_t){one, 1u}, 1u));
 }
 
 TT_CASE(unknown_flag_is_invalid)
 {
-    const app_desc_t bad = { 6u, "bad6", cb_init, cb_exit, cb_task, (1u << 7), APP_STACK_MIN };
-    const app_desc_t *const one[] = { &bad };
+    const app_desc_t bad = {6u, "bad6", cb_init, cb_exit, cb_task, (1u << 7), APP_STACK_MIN};
+    const app_desc_t *const one[] = {&bad};
 
     fw_reset();
     use_good_platform();
-    TT_ASSERT_INT(CM_ERR_INVALID, fw_init(&(fw_manifest_t){ one, 1u }, 1u));
+    TT_ASSERT_INT(CM_ERR_INVALID, fw_init(&(fw_manifest_t){one, 1u}, 1u));
 }
 
 TT_CASE(small_stack_is_invalid)
 {
-    const app_desc_t bad = { 7u, "bad7", cb_init, cb_exit, cb_task, 0u, APP_STACK_MIN - 1u };
-    const app_desc_t *const one[] = { &bad };
+    const app_desc_t bad = {7u, "bad7", cb_init, cb_exit, cb_task, 0u, APP_STACK_MIN - 1u};
+    const app_desc_t *const one[] = {&bad};
 
     fw_reset();
     use_good_platform();
-    TT_ASSERT_INT(CM_ERR_INVALID, fw_init(&(fw_manifest_t){ one, 1u }, 1u));
+    TT_ASSERT_INT(CM_ERR_INVALID, fw_init(&(fw_manifest_t){one, 1u}, 1u));
 }
 
 TT_CASE(null_slot_is_invalid)
 {
-    const app_desc_t *const one[] = { NULL };
+    const app_desc_t *const one[] = {NULL};
 
     fw_reset();
     use_good_platform();
-    TT_ASSERT_INT(CM_ERR_INVALID, fw_init(&(fw_manifest_t){ one, 1u }, 1u));
+    TT_ASSERT_INT(CM_ERR_INVALID, fw_init(&(fw_manifest_t){one, 1u}, 1u));
 }
 
 /* ── 二次初始化 ───────────────────────────────────────────────── */
 
 TT_CASE(second_init_is_state_error)
 {
-    const fw_manifest_t m = { list_ab, 2u };
+    const fw_manifest_t m = {list_ab, 2u};
 
     fw_reset();
     use_good_platform();

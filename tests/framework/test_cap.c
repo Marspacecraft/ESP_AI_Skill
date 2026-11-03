@@ -102,10 +102,10 @@ TT_CASE(invalid_arguments_answer_false)
     TT_ASSERT_INT(0, fw_cap_register(CAP_DISPLAY, &g_disp_impl));
     TT_ASSERT_INT(0, fw_cap_register(CAP_KEY, &g_key_impl));
 
-    TT_ASSERT_FALSE(cap_available(0u));                        /* 0 不是能力位 */
-    TT_ASSERT_FALSE(cap_available(CAP_DISPLAY | CAP_KEY));     /* 多位组合：不猜 */
-    TT_ASSERT_FALSE(cap_available(1u << 10));                  /* 保留位 */
-    TT_ASSERT_FALSE(cap_available(1u << 31));                  /* 保留位 */
+    TT_ASSERT_FALSE(cap_available(0u));                    /* 0 不是能力位 */
+    TT_ASSERT_FALSE(cap_available(CAP_DISPLAY | CAP_KEY)); /* 多位组合：不猜 */
+    TT_ASSERT_FALSE(cap_available(1u << 10));              /* 保留位 */
+    TT_ASSERT_FALSE(cap_available(1u << 31));              /* 保留位 */
 }
 
 TT_CASE(registration_rejects_invalid_input)

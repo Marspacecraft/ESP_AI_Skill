@@ -48,18 +48,45 @@ static uint32_t g_done_key;
 #define SVC_TEST_ID 11u /* 编译期常量：跨任务共享的东西不设可变的 */
 static const uint8_t g_svc_id = SVC_TEST_ID;
 
-static int obs_get(const int *p) { return __atomic_load_n(p, __ATOMIC_ACQUIRE); }
-static void obs_add(int *p) { (void)__atomic_add_fetch(p, 1, __ATOMIC_RELAXED); }
+static int obs_get(const int *p)
+{
+    return __atomic_load_n(p, __ATOMIC_ACQUIRE);
+}
+static void obs_add(int *p)
+{
+    (void)__atomic_add_fetch(p, 1, __ATOMIC_RELAXED);
+}
 
 /* ------------------------------------------------------------------ */
 /* 被测 App                                                           */
 /* ------------------------------------------------------------------ */
 
-static cm_err_t ok_init(app_ctx_t *ctx) { obs_add(&g_init_calls); ctx->slots[0] = ctx; return CM_OK; }
-static void ok_exit(app_ctx_t *ctx) { (void)ctx; obs_add(&g_exit_calls); }
-static void ok_task(app_ctx_t *ctx) { (void)ctx; for (;;) { obs_add(&g_ticks); fw_delay_block(20u); } }
+static cm_err_t ok_init(app_ctx_t *ctx)
+{
+    obs_add(&g_init_calls);
+    ctx->slots[0] = ctx;
+    return CM_OK;
+}
+static void ok_exit(app_ctx_t *ctx)
+{
+    (void)ctx;
+    obs_add(&g_exit_calls);
+}
+static void ok_task(app_ctx_t *ctx)
+{
+    (void)ctx;
+    for (;;) {
+        obs_add(&g_ticks);
+        fw_delay_block(20u);
+    }
+}
 
-static cm_err_t bad_init(app_ctx_t *ctx) { (void)ctx; obs_add(&g_init_calls); return CM_ERR_INVALID; }
+static cm_err_t bad_init(app_ctx_t *ctx)
+{
+    (void)ctx;
+    obs_add(&g_init_calls);
+    return CM_ERR_INVALID;
+}
 
 /* "非框架循环"：**不**调任何 `fw_*` 阻塞接口，所以心跳一次都不会被喂。
  * 这就是 D29 说的那一类——框架能发现它，但没有办法让它自己停下。
@@ -106,30 +133,68 @@ static cm_err_t svc_init(app_ctx_t *ctx)
     return fw_svc_register_ctx(SVC_TEST_ID, fw_current_ctx());
 }
 
-static void svc_task(app_ctx_t *ctx) { (void)ctx; for (;;) { obs_add(&g_ticks); fw_delay_block(20u); } }
+static void svc_task(app_ctx_t *ctx)
+{
+    (void)ctx;
+    for (;;) {
+        obs_add(&g_ticks);
+        fw_delay_block(20u);
+    }
+}
 
 /* 一次要 1000 ms 的延时：用来证明"切片"真的把长等待切碎了。 */
-static void slow_task(app_ctx_t *ctx) { (void)ctx; obs_add(&g_ticks); fw_delay_block(1000u); obs_add(&g_ticks); }
+static void slow_task(app_ctx_t *ctx)
+{
+    (void)ctx;
+    obs_add(&g_ticks);
+    fw_delay_block(1000u);
+    obs_add(&g_ticks);
+}
 
 static const app_desc_t ok_desc = {
-    .id = 40u, .name = "beh", .init = ok_init, .exit = ok_exit, .task = ok_task,
-    .stack_bytes = APP_STACK_MIN, .flags = APP_FLAG_SYSTEM,
+    .id = 40u,
+    .name = "beh",
+    .init = ok_init,
+    .exit = ok_exit,
+    .task = ok_task,
+    .stack_bytes = APP_STACK_MIN,
+    .flags = APP_FLAG_SYSTEM,
 };
 static const app_desc_t bad_desc = {
-    .id = 41u, .name = "beh_bad", .init = bad_init, .exit = ok_exit, .task = ok_task,
-    .stack_bytes = APP_STACK_MIN, .flags = APP_FLAG_SYSTEM,
+    .id = 41u,
+    .name = "beh_bad",
+    .init = bad_init,
+    .exit = ok_exit,
+    .task = ok_task,
+    .stack_bytes = APP_STACK_MIN,
+    .flags = APP_FLAG_SYSTEM,
 };
 static const app_desc_t spin_desc = {
-    .id = 43u, .name = "beh_spin", .init = ok_init, .exit = ok_exit, .task = spin_task,
-    .stack_bytes = APP_STACK_MIN, .flags = APP_FLAG_SYSTEM,
+    .id = 43u,
+    .name = "beh_spin",
+    .init = ok_init,
+    .exit = ok_exit,
+    .task = spin_task,
+    .stack_bytes = APP_STACK_MIN,
+    .flags = APP_FLAG_SYSTEM,
 };
 static const app_desc_t svc_desc = {
-    .id = 44u, .name = "beh_svc", .init = svc_init, .exit = ok_exit, .task = svc_task,
-    .stack_bytes = APP_STACK_MIN, .flags = APP_FLAG_SYSTEM,
+    .id = 44u,
+    .name = "beh_svc",
+    .init = svc_init,
+    .exit = ok_exit,
+    .task = svc_task,
+    .stack_bytes = APP_STACK_MIN,
+    .flags = APP_FLAG_SYSTEM,
 };
 static const app_desc_t slow_desc = {
-    .id = 42u, .name = "beh_slow", .init = ok_init, .exit = ok_exit, .task = slow_task,
-    .stack_bytes = APP_STACK_MIN, .flags = APP_FLAG_SYSTEM,
+    .id = 42u,
+    .name = "beh_slow",
+    .init = ok_init,
+    .exit = ok_exit,
+    .task = slow_task,
+    .stack_bytes = APP_STACK_MIN,
+    .flags = APP_FLAG_SYSTEM,
 };
 
 static fw_manifest_t manifest_of(const app_desc_t *one)
@@ -176,7 +241,10 @@ static void reset_all(void)
     g_ev_n = 0;
 }
 
-static uint32_t now_ms(void) { return pf_platform_ops()->clock_ms(); }
+static uint32_t now_ms(void)
+{
+    return pf_platform_ops()->clock_ms();
+}
 
 static int wait_until_truthy(const int *p, int want, uint32_t timeout_ms)
 {
@@ -384,8 +452,8 @@ TT_CASE(submit_copies_the_caller_buffer)
 
 TT_CASE(same_key_overwrites_and_notifies_the_old_frame)
 {
-    uint8_t a[4] = { 1u, 1u, 1u, 1u };
-    uint8_t b[4] = { 2u, 2u, 2u, 2u };
+    uint8_t a[4] = {1u, 1u, 1u, 1u};
+    uint8_t b[4] = {2u, 2u, 2u, 2u};
     uint8_t got[8];
     uint32_t key = 0u;
     size_t len = 0u;
@@ -409,7 +477,7 @@ TT_CASE(same_key_overwrites_and_notifies_the_old_frame)
 
 TT_CASE(submit_table_full_is_busy_not_nomem)
 {
-    uint8_t one[2] = { 9u, 9u };
+    uint8_t one[2] = {9u, 9u};
     uint8_t got[8];
     uint32_t key = 0u;
     size_t len = 0u;
@@ -420,14 +488,16 @@ TT_CASE(submit_table_full_is_busy_not_nomem)
     for (uint32_t k = 1u; k <= FW_SUBMIT_SLOTS; k++) {
         TT_ASSERT_INT((int)CM_OK, (int)fw_svc_submit(g_svc_id, k, one, sizeof one, on_done, NULL));
     }
-    TT_ASSERT_INT((int)CM_ERR_BUSY, (int)fw_svc_submit(g_svc_id, 99u, one, sizeof one, on_done, NULL));
+    TT_ASSERT_INT((int)CM_ERR_BUSY,
+                  (int)fw_svc_submit(g_svc_id, 99u, one, sizeof one, on_done, NULL));
     TT_ASSERT_INT((int)FW_SUBMIT_SLOTS, (int)fw_svc_submit_count(g_svc_id));
 
     for (uint32_t k = 1u; k <= FW_SUBMIT_SLOTS; k++) {
         TT_ASSERT_INT((int)CM_OK, (int)fw_svc_submit_take(g_svc_id, &key, got, sizeof got, &len));
     }
     TT_ASSERT_INT(0, (int)fw_svc_submit_count(g_svc_id));
-    TT_ASSERT_INT((int)CM_ERR_NOT_SUPPORTED, (int)fw_svc_submit_take(g_svc_id, &key, got, sizeof got, &len));
+    TT_ASSERT_INT((int)CM_ERR_NOT_SUPPORTED,
+                  (int)fw_svc_submit_take(g_svc_id, &key, got, sizeof got, &len));
     reset_all();
 }
 
@@ -478,7 +548,7 @@ TT_CASE(busy_loop_is_detected_but_cancel_does_not_stop_it)
  * App 上下文（伪阻塞要靠取消位），而 `uart_open()` 必须在板级钩子跑过之后——
  * 那个钩子在 `fw_embed_start()` 里，所以顺序只能是"先启动、再在 App 里操作"。 */
 static int g_uart_scenario;
-static cm_err_t g_uart_rc;      /* 写/读的结果 */
+static cm_err_t g_uart_rc; /* 写/读的结果 */
 static cm_err_t g_uart_open_rc;
 static cm_err_t g_uart_close_rc;
 static cm_err_t g_uart_double_rc;
@@ -595,7 +665,7 @@ TT_CASE(uart_double_open_is_busy_and_close_is_paired)
     TT_ASSERT_TRUE(wait_until_truthy(&g_uart_done, 1, 2000u));
     TT_ASSERT_INT(CM_OK, g_uart_open_rc);
     TT_ASSERT_INT(CM_ERR_BUSY, g_uart_double_rc);
-    TT_ASSERT_INT(CM_OK, g_uart_rc);        /* 第一次关闭成功 */
+    TT_ASSERT_INT(CM_OK, g_uart_rc);              /* 第一次关闭成功 */
     TT_ASSERT_INT(CM_ERR_STATE, g_uart_close_rc); /* 第二次没有可关的 */
     uart_case_reset();
 }

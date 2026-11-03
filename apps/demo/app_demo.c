@@ -48,12 +48,8 @@ static void demo_task(app_ctx_t *ctx)
 }
 
 const app_desc_t app_demo_desc = {
-    APP_DEMO_ID,
-    "demo",
-    demo_init,
-    demo_exit,
-    demo_task,
-    APP_FLAG_SYSTEM, /* 样板 App 随 boot 起来：它没有管理器，自己就是第一个 */
+    APP_DEMO_ID,   "demo",          demo_init, demo_exit,
+    demo_task,     APP_FLAG_SYSTEM, /* 样板 App 随 boot 起来：它没有管理器，自己就是第一个 */
     APP_STACK_MIN,
 };
 

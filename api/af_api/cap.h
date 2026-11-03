@@ -29,16 +29,16 @@ extern "C" {
 
 /* 位 0–9：与 `platform/port/pf_ops.h` 的 `PF_CAP_*` 逐位对应（位号不能改）。
  * 位 10–31 保留，平台必须读 0，`fw_ops_check()` 在启动时就拒掉违例的表。 */
-#define CAP_DISPLAY         (1u << 0u)  /* 有屏 */
-#define CAP_DISPLAY_PARTIAL (1u << 1u)  /* 屏支持局部刷新（没有不代表不能刷，只代表要靠全刷） */
-#define CAP_TOUCH           (1u << 2u)  /* 触摸 */
-#define CAP_KEY             (1u << 3u)  /* 按键 */
-#define CAP_STORAGE         (1u << 4u)  /* 掉电不丢的存储 */
-#define CAP_NET             (1u << 5u)  /* 网络 */
-#define CAP_AUDIO_OUT       (1u << 6u)  /* 扬声器 */
-#define CAP_AUDIO_IN        (1u << 7u)  /* 麦克风 */
-#define CAP_RTC             (1u << 8u)  /* 实时时钟（能跨断电计时） */
-#define CAP_UART            (1u << 9u)  /* 至少一路可用的应用串口（接口头 `uart.h`） */
+#define CAP_DISPLAY (1u << 0u)         /* 有屏 */
+#define CAP_DISPLAY_PARTIAL (1u << 1u) /* 屏支持局部刷新（没有不代表不能刷，只代表要靠全刷） */
+#define CAP_TOUCH (1u << 2u)           /* 触摸 */
+#define CAP_KEY (1u << 3u)             /* 按键 */
+#define CAP_STORAGE (1u << 4u)         /* 掉电不丢的存储 */
+#define CAP_NET (1u << 5u)             /* 网络 */
+#define CAP_AUDIO_OUT (1u << 6u)       /* 扬声器 */
+#define CAP_AUDIO_IN (1u << 7u)        /* 麦克风 */
+#define CAP_RTC (1u << 8u)             /* 实时时钟（能跨断电计时） */
+#define CAP_UART (1u << 9u)            /* 至少一路可用的应用串口（接口头 `uart.h`） */
 
 /**
  * 查某个能力位这块板有没有。

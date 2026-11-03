@@ -97,8 +97,7 @@ static void stop_all(void)
 
         fw_app_request_cancel(c);
         for (int i = 0; i < 400; i++) {
-            if (fw_app_state(c) == FW_APP_STATE_STOPPED ||
-                fw_app_state(c) == FW_APP_STATE_FAILED) {
+            if (fw_app_state(c) == FW_APP_STATE_STOPPED || fw_app_state(c) == FW_APP_STATE_FAILED) {
                 break;
             }
             pf_host_fake_ops_get()->sleep_ms(2u);
@@ -155,8 +154,8 @@ TT_CASE(over_quota_is_quota_error_and_counts_denial)
 {
     run_scenario(1, 100u);
     TT_ASSERT_INT(1, g_ok1);
-    TT_ASSERT_INT(1, g_ok2);   /* 第二次 64 被拒 */
-    TT_ASSERT_INT(1, g_ok3);   /* 拒绝次数记了 1 */
+    TT_ASSERT_INT(1, g_ok2); /* 第二次 64 被拒 */
+    TT_ASSERT_INT(1, g_ok3); /* 拒绝次数记了 1 */
     TT_ASSERT_INT(64, (int)g_used_after_alloc);
     TT_ASSERT_INT(0, (int)g_used_after_free);
     stop_all();

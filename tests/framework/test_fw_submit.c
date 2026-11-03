@@ -55,8 +55,7 @@ static void stop_all(void)
 
         fw_app_request_cancel(c);
         for (int i = 0; i < 400; i++) {
-            if (fw_app_state(c) == FW_APP_STATE_STOPPED ||
-                fw_app_state(c) == FW_APP_STATE_FAILED) {
+            if (fw_app_state(c) == FW_APP_STATE_STOPPED || fw_app_state(c) == FW_APP_STATE_FAILED) {
                 break;
             }
             pf_host_fake_ops_get()->sleep_ms(2u);
@@ -182,8 +181,7 @@ TT_CASE(different_keys_are_both_kept)
     TT_ASSERT_INT(CM_OK, fw_svc_submit_take(SVC_FRAME, &key, out, sizeof out, &got));
     TT_ASSERT_INT(2, (int)key);
     /* 取空之后不是"还有 0 帧可用"，而是明确说没有 —— 空队列不是错误。 */
-    TT_ASSERT_INT(CM_ERR_NOT_SUPPORTED,
-                  fw_svc_submit_take(SVC_FRAME, &key, out, sizeof out, &got));
+    TT_ASSERT_INT(CM_ERR_NOT_SUPPORTED, fw_svc_submit_take(SVC_FRAME, &key, out, sizeof out, &got));
     stop_all();
 }
 

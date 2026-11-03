@@ -16,7 +16,7 @@
 static struct fw_app_ctx *g_ctx;
 static int g_scenario;
 static int g_wait_rc;
-static int g_after_wait_ran;   /* wait 之后那行有没有执行（取消场景必须为 0） */
+static int g_after_wait_ran; /* wait 之后那行有没有执行（取消场景必须为 0） */
 static unsigned char g_seen[T_PAYLOAD];
 static unsigned char g_payload[T_PAYLOAD];
 static unsigned char g_out[T_PAYLOAD];
@@ -44,17 +44,16 @@ static void event_task(app_ctx_t *ctx)
         flag_set(&g_wait_rc, (int)fw_event_wait(T_BUTTON, buf, sizeof(buf), &len, 50u));
         break;
     case 1: /* 等主线程 30ms 后投递的事件 */
-        {
-            int rc = (int)fw_event_wait(T_BUTTON, buf, sizeof(buf), &len, 3000u);
+    {
+        int rc = (int)fw_event_wait(T_BUTTON, buf, sizeof(buf), &len, 3000u);
 
-            if (rc == CM_OK) {
-                for (size_t i = 0; i < T_PAYLOAD; i++) {
-                    g_seen[i] = buf[i];
-                }
+        if (rc == CM_OK) {
+            for (size_t i = 0; i < T_PAYLOAD; i++) {
+                g_seen[i] = buf[i];
             }
-            flag_set(&g_wait_rc, rc);
         }
-        break;
+        flag_set(&g_wait_rc, rc);
+    } break;
     case 2: /* 长等，等主线程取消 */
         (void)fw_event_wait(T_BUTTON, buf, sizeof(buf), &len, 5000u);
         flag_set(&g_after_wait_ran, 1);
@@ -104,8 +103,7 @@ static void stop_all(void)
 
         fw_app_request_cancel(c);
         for (int i = 0; i < 800; i++) {
-            if (fw_app_state(c) == FW_APP_STATE_STOPPED ||
-                fw_app_state(c) == FW_APP_STATE_FAILED) {
+            if (fw_app_state(c) == FW_APP_STATE_STOPPED || fw_app_state(c) == FW_APP_STATE_FAILED) {
                 break;
             }
             pf_host_fake_ops_get()->sleep_ms(2u);
@@ -191,8 +189,7 @@ TT_CASE(undeclared_topic_is_not_supported_everywhere)
     TT_ASSERT_INT(CM_ERR_NOT_SUPPORTED, fw_event_post(T_BUTTON, g_payload, T_PAYLOAD));
     TT_ASSERT_INT(CM_ERR_NOT_SUPPORTED, fw_event_post_isr(T_BUTTON, g_payload));
     TT_ASSERT_INT(CM_ERR_NOT_SUPPORTED, fw_event_take(T_BUTTON, g_out, sizeof(g_out), &g_len));
-    TT_ASSERT_INT(CM_ERR_NOT_SUPPORTED,
-                  fw_event_wait(T_BUTTON, g_out, sizeof(g_out), &g_len, 10u));
+    TT_ASSERT_INT(CM_ERR_NOT_SUPPORTED, fw_event_wait(T_BUTTON, g_out, sizeof(g_out), &g_len, 10u));
     stop_all();
 }
 

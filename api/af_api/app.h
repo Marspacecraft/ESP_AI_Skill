@@ -48,9 +48,9 @@ extern "C" {
  * **布局可见、写入权分明**。
  */
 struct app_ctx {
-    uint32_t id;                      /**< 只读：本 App 的 id */
-    void *slots[APP_CTX_SLOTS];       /**< 框架写、框架回收；App 只取地址 */
-    void *fw;                         /**< 框架自留；App 不碰（D16） */
+    uint32_t id;                /**< 只读：本 App 的 id */
+    void *slots[APP_CTX_SLOTS]; /**< 框架写、框架回收；App 只取地址 */
+    void *fw;                   /**< 框架自留；App 不碰（D16） */
 };
 
 typedef struct app_ctx app_ctx_t;
@@ -75,10 +75,10 @@ typedef void (*app_task_fn)(app_ctx_t *ctx);
 #define APP_FLAG_SYSTEM (1u << 0)
 
 /** App 的 id 取值域。0 = 无效哨兵，1 = 管理器，2..254 给普通 App，255 禁用。 */
-#define APP_ID_INVALID  0u
-#define APP_ID_MANAGER  1u
-#define APP_ID_MIN      2u
-#define APP_ID_MAX      254u
+#define APP_ID_INVALID 0u
+#define APP_ID_MANAGER 1u
+#define APP_ID_MIN 2u
+#define APP_ID_MAX 254u
 
 /** App 主任务的最小栈（字节）。**必须与 `PF_TASK_MIN_STACK` 一致**——
  *  框架先用本值挡一道（启动前就报错），平台再用自己的值挡一道（`task_create`
@@ -94,17 +94,17 @@ typedef void (*app_task_fn)(app_ctx_t *ctx);
  *  再叠 newlib 的 `vsnprintf()`，1 KB 连"能打一行日志"都做不到。
  *  2048 是实测下限，取 3072 留一档余量——App 的栈里除了日志还要放它自己的
  *  局部变量。 */
-#define APP_STACK_MIN  3072u
+#define APP_STACK_MIN 3072u
 
 /** 一个 App 的全部声明。**由清单持有，必须是静态常量**（框架不拷贝名字）。 */
 typedef struct app_desc {
-    uint32_t id;             /**< 2..254；0/1 保留；重复 = 启动失败 */
-    const char *name;        /**< 只用于日志；不得为 NULL；不参与任何判定 */
-    app_init_fn init;        /**< 必需；NULL 视为清单错误 */
-    app_exit_fn exit;        /**< 必需；NULL 视为清单错误（否则资源无人回收） */
-    app_task_fn task;        /**< 必需；NULL 视为清单错误 */
-    uint32_t flags;          /**< `APP_FLAG_SYSTEM` 等位；未知位必须为 0 */
-    uint32_t stack_bytes;    /**< 主任务栈，>= `APP_STACK_MIN`；**平台按此分配，不许自动抬栈** */
+    uint32_t id;          /**< 2..254；0/1 保留；重复 = 启动失败 */
+    const char *name;     /**< 只用于日志；不得为 NULL；不参与任何判定 */
+    app_init_fn init;     /**< 必需；NULL 视为清单错误 */
+    app_exit_fn exit;     /**< 必需；NULL 视为清单错误（否则资源无人回收） */
+    app_task_fn task;     /**< 必需；NULL 视为清单错误 */
+    uint32_t flags;       /**< `APP_FLAG_SYSTEM` 等位；未知位必须为 0 */
+    uint32_t stack_bytes; /**< 主任务栈，>= `APP_STACK_MIN`；**平台按此分配，不许自动抬栈** */
 } app_desc_t;
 
 /** 一份清单。**count 与指针必须自洽**：不靠 NULL 结尾（NULL 是合法的描述体指针，
@@ -124,7 +124,6 @@ typedef struct fw_manifest {
  *                   改 `apps/app_manifest.c` 一处，不用动框架。
  */
 const fw_manifest_t *app_manifest_primary(void);
-
 
 /* ── 使用面（App 能调的全部框架函数）───────────────────────────── */
 

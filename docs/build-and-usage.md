@@ -48,6 +48,7 @@ platform/   平台适配：九项基础设施 + 能力位
 ```
 .
 ├── build.sh              # 唯一构建入口（nobody：只有人能改）
+├── .clang-format         # 全仓排版（nobody：改它等于改全仓的 diff）
 ├── policy.txt            # 写权/链接权的唯一来源（nobody）
 ├── AGENTS.md             # AI 入口（nobody）
 ├── 实施步骤.md            # 施工计划 + 决策 D1–D59 + 推进记录（nobody）

@@ -11,7 +11,7 @@
 #ifndef ESP32S3_DEVKIT_PF_ESPIDF_H
 #define ESP32S3_DEVKIT_PF_ESPIDF_H
 
-#include "pf_ops.h"   /* `platform/port/` 由构建系统放进 include 路径（与 C3 端口一致） */
+#include "pf_ops.h" /* `platform/port/` 由构建系统放进 include 路径（与 C3 端口一致） */
 
 #ifdef __cplusplus
 extern "C" {

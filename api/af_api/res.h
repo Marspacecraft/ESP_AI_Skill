@@ -113,7 +113,6 @@ cm_err_t fw_res_revoke(struct app_ctx *ctx);
 void fw_res_usage(const struct app_ctx *ctx, size_t *used_bytes, size_t *quota_bytes,
                   uint32_t *denied_count);
 
-
 #ifdef __cplusplus
 }
 #endif

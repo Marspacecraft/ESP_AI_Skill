@@ -242,8 +242,8 @@ cm_err_t fw_svc_submit(fw_svc_id_t svc, uint32_t key, const void *data, size_t l
  *         线程与中断：owner 任务里调；ISR 禁止。非阻塞。
  *         注意事项：取走后框架那份拷贝被释放，`done(key, 0, user)` 同步触发。
  */
-cm_err_t fw_svc_submit_take(fw_svc_id_t svc, uint32_t *out_key,
-                            void *buf, size_t cap, size_t *out_len);
+cm_err_t fw_svc_submit_take(fw_svc_id_t svc, uint32_t *out_key, void *buf, size_t cap,
+                            size_t *out_len);
 
 /** 这个服务还有几帧没被取走。调试与测试用。 */
 uint32_t fw_svc_submit_count(fw_svc_id_t svc);
@@ -256,7 +256,6 @@ void fw_submit_forget(void);
 
 /** 清空全部事件主题（`fw_reset()` 用）。 */
 void fw_event_forget(void);
-
 
 /** 清空活实例表。**只给 `fw_reset()` 用**。 */
 void fw_boot_forget(void);
@@ -277,12 +276,12 @@ void fw_uart_forget(void);
  * 不是 `volatile`（那不给原子性，TSan 一抓一个准），也没有锁，不该有锁。
  */
 struct fw_app_ctx {
-    app_ctx_t pub;                  /* 必须是第一个成员：App 拿到的是 &pub */
+    app_ctx_t pub; /* 必须是第一个成员：App 拿到的是 &pub */
     const app_desc_t *desc;
-    uint32_t cancel;                /* 取消位：1 = 有停止请求 */
-    uint32_t state;                 /* fw_app_state_e */
-    uint32_t exit_calls;            /* exit() 被调用过几次（只该是 0 或 1） */
-    uint32_t in_exit;               /* 1 = 正在跑 exit()：取消位失效 */
+    uint32_t cancel;                     /* 取消位：1 = 有停止请求 */
+    uint32_t state;                      /* fw_app_state_e */
+    uint32_t exit_calls;                 /* exit() 被调用过几次（只该是 0 或 1） */
+    uint32_t in_exit;                    /* 1 = 正在跑 exit()：取消位失效 */
     res_kind_e slot_kind[APP_CTX_SLOTS]; /* 每个槽位的资源种类（槽位为空时无意义） */
     res_life_e slot_life[APP_CTX_SLOTS]; /* 生命周期：决定退出路径管不管它 */
     uint32_t slots_released;             /* 退出路径回收了几个槽位（测试用） */

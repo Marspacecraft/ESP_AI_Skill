@@ -212,4 +212,5 @@ void fw_reset(void)
     fw_submit_forget();
     fw_event_forget();
     fw_boot_forget();
+    fw_embed_forget();
 }

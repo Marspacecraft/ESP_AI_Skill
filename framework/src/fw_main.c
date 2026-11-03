@@ -1,20 +1,15 @@
 /* framework/src/fw_main.c —— 整机唯一入口（决定 32，步骤 4.1）。
  *
- * 调用链只有一条，不许有第二条：
+ *     app_main()  →  fw_startup()        （平台表 → 绑定 → 合清单 → 拉起系统 App）
  *
- *     app_main()  →  pf_platform_ops()    （平台把表交出来）
- *                 →  fw_platform_bind()   （校验并绑定）
- *                 →  fw_init()            （合并清单、查重、校验每一条）
- *                 →  fw_boot()            （只拉起 APP_FLAG_SYSTEM 的）
+ * 启动序列本身在 `fw_startup.c`：嵌入方（`fw_embed_start()`）要用同一段序列，
+ * 而它不能链到这里——本文件定义 `app_main()`，产品固件已经有一个了。
+ * 把"顺序"与"整机入口"分成两份文件，两种宿主才共用得到同一段代码；
+ * 合在一起时，谁要嵌入谁就得把 `app_main` 也一起拉进来（链接期直接撞车）。
  *
  * 这一份文件里**没有** `pf_` 前缀的实现，也没有 App 的名字：平台是谁、有哪些 App，
  * 都由两个钩子回答（`pf_platform_ops()` 由平台实现，`app_manifest_primary()` 由
- * App 层实现）。所以加一块板、加一个 App 都不需要改这里——它只负责"顺序"。
- *
- * 为什么把启动拆成 `fw_startup()` + `app_main()`：
- *   `app_main()` 里有 `for (;;)`（启动失败要停在原地等看门狗），一调就下不来。
- *   测试要验的是"启动顺序对不对"，不是"能不能永久阻塞"，所以把可测的那段抽出来，
- *   剩下三行的阻塞循环没有测试价值。
+ * App 层实现）。所以加一块板、加一个 App 都不需要改这里——它只负责"入口"。
  */
 #include "framework/src/fw_internal.h"
 #include "framework/include/fw_app.h"
@@ -22,26 +17,6 @@
 
 /** 启动失败时停在原地的心跳间隔。 */
 #define FW_HALT_HEARTBEAT_MS 1000u
-
-cm_err_t fw_startup(const pf_ops_t *ops, const fw_manifest_t *man)
-{
-    cm_err_t err;
-
-    if (ops == NULL || man == NULL) {
-        return CM_ERR_INVALID;
-    }
-
-    /* 顺序不能换：bind 先校验版本与九项完整性，后面的 init/boot 都假设表可用。 */
-    err = fw_platform_bind(ops);
-    if (err != CM_OK) {
-        return err;
-    }
-    err = fw_init(man, 1u);
-    if (err != CM_OK) {
-        return err;
-    }
-    return fw_boot();
-}
 
 void app_main(void)
 {

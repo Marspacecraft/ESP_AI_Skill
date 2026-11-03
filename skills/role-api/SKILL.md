@@ -45,7 +45,7 @@ python3 tools/check_workspace_policy.py --as 5 framework/src/fw_ctx.c
 | `common/include/cm_atomic.h` | 所有人 | `CM_ATOMIC_*` 五个宏 + 内存序枚举 |
 | `platform/port/pf_ops.h` | 框架、平台 | 九项原语（App 看不到，这是刻意的） |
 
-**`framework/include/fw_app.h` 只是转发头**（27 行，只 include `api/af_api/app.h`）。D44 之前契约
+**`framework/include/fw_app.h` 只是转发头**（只 include `api/af_api/app.h`）。D44 之前契约
 长在框架里，结果"框架要写 `app_ctx`、却 include 不了 `api/`"这个说法把所有权搞反了。
 **不要把契约搬回去。**
 
@@ -75,7 +75,9 @@ python3 tools/check_workspace_policy.py --as 5 framework/src/fw_ctx.c
 
 **加一个公开函数**：
 
-1. 先问它属于**使用面**还是**控制面**（能不能强制别人）。控制面不进 `api/af_api/`。
+1. 先问它属于**使用面**还是**控制面**（能不能强制别人）。
+   控制面也住 `api/af_api/`，但**必须单独成文件**并在头注释顶部写明它是控制面——
+   `mgr.h` 就是先例（D52）；把两种面混进同一个头，App 作者会以为控制面也能随便调。
 2. 声明进对应头，四段注释写全：入参（含边界）/ 返回值（含失败码与输出参数状态）/
    线程与中断可用性 / 注意事项（谁释放、会不会阻塞、调用顺序）。
 3. 实现放在能被 link 到的地方（`common/src` 或 `framework/src`）——放 `framework/src` 的函数

@@ -50,7 +50,7 @@ platform/   平台适配：九项基础设施 + 能力位
 ├── build.sh              # 唯一构建入口（nobody：只有人能改）
 ├── policy.txt            # 写权/链接权的唯一来源（nobody）
 ├── AGENTS.md             # AI 入口（nobody）
-├── 实施步骤.md            # 施工计划 + 决策 D1–D53 + 推进记录（nobody）
+├── 实施步骤.md            # 施工计划 + 决策 D1–D55 + 推进记录（nobody）
 │
 ├── api/af_api/           # App 的门面：app.h res.h evt.h svc.h     [tag 5 写]
 ├── common/               # cm_types.h/.c：cm_err_t、错误码；cm_atomic.h：原子访问  [tag 5 写]
@@ -90,7 +90,7 @@ platform/   平台适配：九项基础设施 + 能力位
 ### 3.1 两种模式
 
 ```bash
-./build.sh          # 只编译：21 个用例二进制，编不过就退出 1
+./build.sh          # 只编译：22 个用例二进制，编不过就退出 1
 ./build.sh run      # 编译 + 逐个执行 + 四道静态门禁
 ```
 
@@ -102,9 +102,9 @@ BUILD FAIL test_fw_delay  (编译器输出见 build/test_fw_delay.log)
     <前 20 行编译错误>
 ...
 PASS duplicate_id_across_manifests_blocks_boot
-SUMMARY pass=154 fail=0 skip=0 test_registry   ← 每份一个
+SUMMARY pass=N fail=0 skip=0 test_registry     ← 每份一个
 check_entry_unique: PASS (framework/src/fw_main.c)
-link 面: PASS（5 个 tag，14 个对外头，闭包逐条包含关系成立）
+link 面: PASS（5 个 tag，16 个对外头，闭包逐条包含关系成立）
 纯 C 边界: PASS（4 个目录，11 条禁止头，30 个禁止标识符）
 能力目录: PASS（9 个能力位，与 docs/generated/catalog.md 双向一致）
 ```
@@ -142,7 +142,7 @@ CC="cc -fsanitize=address -fno-omit-frame-pointer -g" ./build.sh run
 CC="cc -fsanitize=thread -g" ./build.sh run
 ```
 
-两条都应当是 **0 报告 + 154 条全绿**。TSan 会把整轮拉长到十几秒——里面有一个
+两条都应当是 **0 报告 + 159 条全绿**。TSan 会把整轮拉长到十几秒——里面有一个
 "纯死循环"样本，那是故意留的，见 `tests/framework/test_heartbeat.c`。
 
 ### 3.4 红了怎么看
@@ -456,7 +456,7 @@ Unverified:   还有什么没验证、为什么
 | A1–A8 验收线怎么算过 | [`acceptance.md`](acceptance.md) |
 | 能力位 ↔ 接口头的映射 | [`generated/catalog.md`](generated/catalog.md) |
 | 产品仓库怎么把本仓库当组件引进去 | [`cross-repo.md`](cross-repo.md) |
-| 决策与施工记录（D1–D53） | [`../实施步骤.md`](../实施步骤.md) |
+| 决策与施工记录（D1–D55） | [`../实施步骤.md`](../实施步骤.md) |
 
 ---
 
@@ -464,7 +464,7 @@ Unverified:   还有什么没验证、为什么
 
 | 项 | 数字 |
 |---|---|
-| host 用例 | **154 条**，21 个二进制，`./build.sh run` rc=0 |
+| host 用例 | **159 条**，22 个二进制，`./build.sh run` rc=0 |
 | 门禁 | 4 道全 PASS（入口唯一 / link 面 5 tag·14 头 / 纯 C 边界 4 目录 / 能力目录 9 位） |
 | 真机 | ESP32-C3 与 ESP32-S3 各 **37 条**（14 端口 + 9 行为 + 6 事件 + 8 资源），`DEVICE_DONE rc=0` |
 | sanitizer | ASan 0 报告、TSan 0 报告 |

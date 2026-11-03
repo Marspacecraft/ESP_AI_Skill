@@ -299,12 +299,25 @@ TT_CASE(revoke_does_not_stop_the_app)
     TT_ASSERT_INT((int)CM_OK, g_rc1);
     TT_ASSERT_INT((int)FW_APP_STATE_RUNNING, (int)fw_app_state(c));  /* 撤销不改状态 */
     TT_ASSERT_INT(0, (int)__atomic_load_n(&c->cancel, __ATOMIC_ACQUIRE));
-    /* 撤销之后任务继续跑:等两轮切片,计数必须还在涨。 */
+    /* 撤销之后任务继续跑:计数必须还在涨。
+     *
+     * 这里**不能**用固定墙钟等待（"睡 120ms 再看"）：App 每轮 `fw_delay_block(50u)`，
+     * 慢 runner 上 120ms 未必排得进两次切片，断言就会随机红——第一版就是这么红的
+     * （macOS CI：`revoke_does_not_stop_the_app -- 期望为真，实际为假`）。
+     * 改成"最多等 2s 的有界轮询"：要证明的是"它还在涨"，不是"它在 120ms 内涨了两次"。
+     */
     {
         int before = flag_get(&g_ticks);
+        int grew = 0;
 
-        pf_platform_ops()->sleep_ms(120u);
-        TT_ASSERT_TRUE(flag_get(&g_ticks) > before);
+        for (int i = 0; i < 400; i++) {
+            pf_platform_ops()->sleep_ms(5u);
+            if (flag_get(&g_ticks) > before) {
+                grew = 1;
+                break;
+            }
+        }
+        TT_ASSERT_TRUE(grew);
     }
     TT_ASSERT_INT((int)FW_APP_STATE_RUNNING, (int)fw_app_state(c));
     stop_it(c);

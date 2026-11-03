@@ -1,0 +1,13 @@
+# 统一换行符：仓库里全部用 LF。
+#
+# Windows 上的 CI 作业会把仓库 checkout 到 NTFS，若 Git 按 autocrlf 转成 CRLF，
+# `build.sh` 的 `#!/bin/sh` 会变成 `#!/bin/sh\r`，报 `bad interpreter: No such file or directory`
+# ——那种红看起来像"Windows 不支持"，其实是换行符。这里显式钉死，不依赖 runner 的 Git 配置。
+* text=auto eol=lf
+*.sh text eol=lf
+*.c text eol=lf
+*.h text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.py text eol=lf
+*.txt text eol=lf

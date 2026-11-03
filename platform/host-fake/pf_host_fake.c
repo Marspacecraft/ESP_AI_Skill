@@ -14,6 +14,21 @@
  *   - 任务结构体不回收（进程内测试量很小）；真机实现由平台自己管生命周期。
  *   - caps() 返回 0：这块"板"什么硬件都没有，服务要由测试自己注册假实现。
  */
+/* `pthread_setname_np` 是 **GNU 扩展**：glibc 只在 `_GNU_SOURCE` 下声明它，
+ * 而 `-std=c11` 会定义 `__STRICT_ANSI__`、让 <features.h> 默认不暴露 GNU 符号，
+ * 于是 Linux 上编译报 implicit declaration，`-Werror` 直接停下
+ * （CI 原文：ubuntu 作业里 `pf_host_fake.c` 隐式声明 `pthread_setname_np`）。
+ *
+ * 三条约束：
+ *   1. 必须写在**任何系统头之前**——<features.h> 一旦被处理过，再定义就不生效。
+ *   2. 只对 Linux 生效；macOS 那边同一个函数由 `_DARWIN_C_SOURCE`（build.sh 里给的）负责。
+ *   3. 不放进 build.sh 的 `DEFS`：那是全局开关，会把 GNU 扩展塞给所有文件；
+ *      全仓只有这一个文件需要给线程起名。
+ */
+#if defined(__linux__) && !defined(_GNU_SOURCE)
+#define _GNU_SOURCE 1
+#endif
+
 #include "platform/host-fake/pf_host_fake.h"
 
 #include <errno.h>

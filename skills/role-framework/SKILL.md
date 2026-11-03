@@ -33,7 +33,7 @@ python3 tools/check_workspace_policy.py --as 3 apps/demo/app_demo.c
 |---|---|---|
 | `api/af_api/*.h` | App、框架、平台 | **公共契约**（`app_ctx`、`app_desc_t`、`fw_delay_block`、`res_*`、`svc_*`、`evt_*`）。定义在 `common/src` 与 `framework/src` 里实现 |
 | `framework/include/` | 目前只有一个转发头 `fw_app.h` | App 调框架符号的入口；**不要往这里加新契约**（D44：契约住 `api/af_api/`） |
-| `framework/src/fw_internal.h` | 只有框架自己与 host 测试 | 内部面：`fw_init`、`fw_boot`、`fw_app_ctx_new*`、`fw_app_start`、`fw_alloc_id`、`fw_live_*` |
+| `framework/src/fw_internal.h` | 只有框架自己与 host 测试 | 内部面：`fw_init`、`fw_boot`、`fw_live_add`、`fw_run_exit`、`fw_current_ctx`。**管理器面（`fw_alloc_id`、`fw_app_ctx_new*`、`fw_app_start`、`fw_app_state`、`fw_live_*`）已经公开到 `api/af_api/mgr.h`**（D52），不要搬回这里 |
 
 **判据**：App 需要的符号 → `api/af_api/`；只有框架自己用的 → `fw_internal.h`。放错方向会立刻
 被 `check_link.py` 抓住（"tag 1/2 的闭包里有 `framework/src/...`"）。
@@ -69,7 +69,7 @@ python3 tools/check_workspace_policy.py --as 3 apps/demo/app_demo.c
 ## 5. 改完必须跑的三件事
 
 ```bash
-./build.sh run                                          # 154 条 + 四道门禁
+./build.sh run                                          # 159 条 + 四道门禁
 CC="cc -fsanitize=thread -g" ./build.sh run             # 竞争（会慢到 ~70s，因为有个纯死循环样本）
 CC="cc -fsanitize=address -fno-omit-frame-pointer -g" ./build.sh run
 ```

@@ -1,4 +1,4 @@
-# 唯一的 CI 作业：跑 `./build.sh run`。
+# CI 只做一件事：跑 `./build.sh run`（三个作业：ubuntu / macOS / Windows）。
 #
 # 它不额外做任何事——本地的构建脚本就是唯一入口，CI 只是把它放到一台干净的机器上，
 # 让"我这儿是绿的"变成"从零 clone 出来也是绿的"。门禁、host 用例、sanitizer 的可选项

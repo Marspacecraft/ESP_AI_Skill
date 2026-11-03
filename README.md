@@ -156,7 +156,7 @@ const app_desc_t app_demo_desc = {
 | 验收线 A1–A8（哪些能自动、哪些要人审） | [`docs/acceptance.md`](docs/acceptance.md) |
 | 能力位 ↔ 接口头 | [`docs/generated/catalog.md`](docs/generated/catalog.md) |
 | 产品仓库怎么把本仓库引进去 | [`docs/cross-repo.md`](docs/cross-repo.md) |
-| 决策与施工记录（D1–D53） | [`实施步骤.md`](实施步骤.md) |
+| 决策与施工记录（D1–D55） | [`实施步骤.md`](实施步骤.md) |
 
 谁写哪个目录由 [`policy.txt`](policy.txt) 决定，不是由你声明：
 
@@ -170,7 +170,7 @@ python3 tools/check_workspace_policy.py --as 2 apps/demo/app_demo.c   # ALLOW/DE
 
 > 数字的唯一出处是 [`AGENTS.md`](AGENTS.md) §1；这里是写这份介绍时的快照，漂了以那边为准。
 
-- host 用例 **154 条**全绿；四道门禁 PASS（入口唯一 / link 闭包 / 纯 C 边界 / 能力目录）
+- host 用例 **159 条**全绿；四道门禁 PASS（入口唯一 / link 闭包 / 纯 C 边界 / 能力目录）
 - 真机：ESP32-C3（ai-passport）与 ESP32-S3 devkit 各 **37 条**，`DEVICE_DONE rc=0`
 - ASan、TSan 全量 0 报告
 

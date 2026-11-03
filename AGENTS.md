@@ -23,6 +23,7 @@
 
 | 想知道 | 去哪 |
 |---|---|
+| **构建框架怎么搭的、命令怎么用** | [`docs/build-and-usage.md`](docs/build-and-usage.md)（详细版：`build.sh` 行为、四道门禁、写 App、接板、真机流程、失败速查） |
 | 一个 App 最短能多短 | `apps/demo/app_demo.c`（80 行，含注释） |
 | App 能调什么 | `api/af_api/app.h`（生命周期 + 使用面）、`res.h`、`evt.h`、`svc.h` |
 | 板子要实现什么 | `platform/port/pf_ops.h`（九项，每项一段注释，**这是接板唯一必读**） |

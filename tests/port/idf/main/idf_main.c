@@ -21,6 +21,9 @@
  * ESP-IDF 的应用入口叫 `app_main`，所以这里直接调 `main` 不冲突。 */
 int main(void);
 
+/* 框架行为的真机验收（tests/port/test_app_behavior.c），同样把 `main` 改名后编进来。 */
+int app_behavior_main(void);
+
 /* ------------------------------------------------------------------ */
 /* 日志栈探针                                                          */
 /* ------------------------------------------------------------------ */
@@ -91,6 +94,12 @@ void app_main(void)
     (void)fflush(stdout);
 
     rc = main();
+
+    printf("\n=== 框架行为验收（同一份断言，host 也跑）===\n");
+    (void)fflush(stdout);
+    if (app_behavior_main() != 0) {
+        rc = 1;
+    }
 
     printf("DEVICE_DONE rc=%d\n", rc);
     (void)fflush(stdout);

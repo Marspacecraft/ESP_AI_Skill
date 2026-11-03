@@ -113,4 +113,13 @@ if [ -f tools/check_link.py ]; then
     fi
 fi
 
+#   check_purity.py —— 纯 C 边界：这些目录里不许出现 SDK / RTOS 的痕迹。
+#   `link 面` 只看仓库内的 include 闭包，`#include "freertos/FreeRTOS.h"`
+#   是系统头、闭包里不会出现；这一份补的正是那个洞。
+if [ -f tools/check_purity.py ]; then
+    if ! python3 tools/check_purity.py; then
+        rc=1
+    fi
+fi
+
 exit "$rc"

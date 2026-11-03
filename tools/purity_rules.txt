@@ -1,0 +1,50 @@
+# purity_rules.txt —— 纯 C 边界的规则数据（check_purity.py 读它）
+#
+# 为什么规则单独成文件：便于逐条 review；改规则是一次独立的小 diff，
+#   不会和判定逻辑的改动混在一起。
+#
+# 行格式（一行一条，空格分隔，与 policy.txt 同一种写法）：
+#   scope           <目录>/ ...        在这些目录里执行纯 C 边界检查
+#   allow_include   <头路径前缀>        例外：允许 include 这个头（即使是平台专有的）
+#   forbid_include  <头路径片段>        出现 #include 且路径以它开头 → 违规
+#   forbid_token    <标识符> ...        出现这个标识符 → 违规
+#
+# 语义：先算"这个 include 是否命中 allow_include"；命中的不判。
+#   forbid_include 按**前缀**匹配（`freertos/` 命中 `freertos/FreeRTOS.h`）。
+#   注释与字符串里的文本不算（扫描前已剥离）。
+#
+# 依据：docs/code-structure.md §2.2。三个目录是标准 C11、不认识任何目标 SDK；
+#   要 RTOS 原语只能 include platform/port/pf_rtos.h（那是我们自己的纯 C 头）。
+#   apps/ 在本列：App 是 C11（允许 C++17 是语言选择，与"认不认识 SDK"无关）。
+#   旧规则把 apps/ 排除了，结果是 App 里写 #include "freertos/FreeRTOS.h"
+#   只能靠人看——`link 面` 看不见系统头，这等于没门禁。
+
+scope common/ api/ framework/ apps/
+
+# ---- 允许的例外：这两个头是我们自己的契约，不是 SDK
+allow_include platform/port/pf_ops.h
+allow_include platform/port/pf_rtos.h
+allow_include platform/port/cm_tls.h
+
+# ---- 不该出现的头（ESP-IDF / FreeRTOS / 各家 HAL）
+forbid_include freertos/
+forbid_include esp_
+forbid_include driver/
+forbid_include soc/
+forbid_include hal/
+forbid_include arduino.h
+forbid_include zephyr/
+forbid_include stm32
+forbid_include nrf_
+forbid_include pico/
+forbid_include mbed.h
+
+# ---- 不该出现的标识符与类型（SDK 的痕迹）
+forbid_token esp_err_t ESP_OK ESP_FAIL ESP_ERR_INVALID_STATE
+forbid_token esp_log_write ESP_LOGI ESP_LOGE ESP_LOGW ESP_LOGD
+forbid_token xSemaphoreHandle SemaphoreHandle_t QueueHandle_t TaskHandle_t
+forbid_token vTaskDelay vTaskDelete xTaskCreate xQueueSend xSemaphoreTake
+forbid_token pdMS_TO_TICKS portMAX_DELAY portTICK_PERIOD_MS
+forbid_token gpio_num_t i2c_port_t spi_host_device_t adc_channel_t
+forbid_token HAL_StatusTypeDef GPIO_TypeDef
+forbid_token NRF_LOG k_sem k_mutex

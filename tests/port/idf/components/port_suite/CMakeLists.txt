@@ -4,6 +4,7 @@ idf_component_register(
     SRCS "${CMAKE_CURRENT_LIST_DIR}/../../../test_port_conformance.c"
          "${CMAKE_CURRENT_LIST_DIR}/../../../test_app_behavior.c"
          "${CMAKE_CURRENT_LIST_DIR}/../../../test_event_on_device.c"
+         "${CMAKE_CURRENT_LIST_DIR}/../../../test_res_on_device.c"
     INCLUDE_DIRS "${CMAKE_CURRENT_LIST_DIR}/../../../../.."
                  "${CMAKE_CURRENT_LIST_DIR}/../../../../../tests"
                  "${CMAKE_CURRENT_LIST_DIR}/../../../../../platform/port"

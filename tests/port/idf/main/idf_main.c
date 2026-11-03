@@ -28,6 +28,9 @@ int app_behavior_main(void);
  * 的丢帧测量，双核板子上才有意义。 */
 int event_on_device_main(void);
 
+/* 资源与配额的真机验收（tests/port/test_res_on_device.c）：退出回收路径。 */
+int res_on_device_main(void);
+
 /* ------------------------------------------------------------------ */
 /* 日志栈探针                                                          */
 /* ------------------------------------------------------------------ */
@@ -108,6 +111,12 @@ void app_main(void)
     printf("\n=== 事件层验收（含双生产者丢帧测量）===\n");
     (void)fflush(stdout);
     if (event_on_device_main() != 0) {
+        rc = 1;
+    }
+
+    printf("\n=== 资源与配额（退出回收路径）===\n");
+    (void)fflush(stdout);
+    if (res_on_device_main() != 0) {
         rc = 1;
     }
 

@@ -315,6 +315,9 @@ struct fw_app_ctx {
     size_t used_bytes;                   /* 记账：本实例当前占用的堆字节数（原子） */
     size_t quota_bytes;                  /* 0 = 不限 */
     uint32_t denied_count;               /* 因配额被拒的次数（原子） */
+    uint32_t hb_seq;                     /* 心跳序号（原子）：每喂一次 +1 */
+    uint32_t hb_ms;                      /* 上一次喂心跳的时刻（原子） */
+    uint32_t hb_base_ms;                 /* 进入 RUNNING 的时刻（原子）：从没喂过时当基准 */
 };
 
 /** 退出路径第 ③ 步：回收所有 `RES_LIFE_APP` 的槽位，恰好一次。
@@ -419,6 +422,14 @@ void fw_app_request_cancel(struct fw_app_ctx *c);
 /** 取**当前任务**的上下文；不在 App 任务里时返回 NULL。
  *  线程与中断：靠 C11 `_Thread_local` 实现，每个任务各一份；ISR 里返回 NULL。 */
 struct fw_app_ctx *fw_current_ctx(void);
+
+/** 喂一次心跳。**只给框架内部的"让出点"调**（`fw_delay_block`、`fw_event_wait`、
+ *  `fw_svc_submit`）——App 不直接调它，因为"能自己报平安"的心跳证明不了任何事。
+ *
+ * @param c 目标实例；NULL 时无操作（不在 App 任务里）。
+ *         线程与中断：App 任务里调；ISR 禁止。
+ */
+void fw_heartbeat_touch(struct fw_app_ctx *c);
 
 /** 走完退出路径并结束当前任务——**永不返回**。
  *

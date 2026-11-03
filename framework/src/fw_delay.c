@@ -29,6 +29,7 @@ void fw_delay_block(uint32_t ms)
 
     c = fw_current_ctx();
 
+    fw_heartbeat_touch(c);
     for (;;) {
         /* 每片之前查一次；最后一片之后回到这里，所以"最后一片里被取消"也能抓到。 */
         if (c != NULL && fw_atomic_load_u32(&c->in_exit) == 0u &&

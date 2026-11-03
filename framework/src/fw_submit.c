@@ -97,6 +97,8 @@ cm_err_t fw_svc_submit(fw_svc_id_t svc, uint32_t key, const void *data, size_t l
     if (svc == 0u || data == NULL || len == 0u || len > FW_SUBMIT_MAX_BYTES) {
         return CM_ERR_INVALID;
     }
+    /* 提交型接口是"让出点"之一：调用方走完一次提交就算又前进了一步。 */
+    fw_heartbeat_touch(fw_current_ctx());
     /* 服务判定沿用 5.1：没注册是 NOT_SUPPORTED，注册了但死了是 UNAVAILABLE。
      * 在锁外面查：`fw_svc_ready()` 自己不拿锁，也不会和提交表竞争。 */
     rc = fw_svc_ready(svc);

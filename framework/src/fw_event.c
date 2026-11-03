@@ -167,7 +167,7 @@ cm_err_t fw_event_wait(evt_topic_t topic, void *buf, size_t cap_bytes, size_t *o
         }
         /* 只在"还没到点"时睡一片；fw_delay_block 内部会查取消位，
          * 命中就 fw_run_exit() 不返回——所以这里不需要自己查。 */
-        fw_delay_block(1u);
+        fw_delay_block(1u); /* 内部会喂心跳并查取消位 */
     }
 }
 

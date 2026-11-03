@@ -258,6 +258,39 @@ void fw_log(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
  */
 void fw_logp(const char *tag, const char *fmt, ...) __attribute__((format(printf, 2, 3)));
 
+/* ── 心跳（步骤 8.1 / 8.2）──────────────────────────────────────
+ *
+ * 心跳不是"我活着"的声明，而是"我又走完了一段可取消的等待"的事实。它由框架在
+ * 让出点自动喂：`fw_delay_block()`、`fw_event_wait()`、`fw_svc_submit()`。
+ *
+ * **它证明不了"还在干活"**：一个纯死循环不调任何框架接口，心跳就永远不动——
+ * 那正是要发现的那种 App。所以这里只提供**观测**，动手不在这里：
+ * 本仓库负责"能被停下来"，产品仓库负责"发现停不下来时重启整机"。
+ */
+
+/** 读一个实例的心跳。
+ *
+ * @param ctx     目标实例；NULL 时全部写 0。
+ * @param seq     可为 NULL；心跳序号（单调增，回绕是 49.7 天量级）。
+ * @param age_ms  可为 NULL；距上一次喂心跳过了多久。
+ * @return 无。
+ *         线程与中断：任意任务可调；ISR 禁止。
+ *         注意事项：`age_ms` 只在实例处于 RUNNING 时有意义；EMPTY/INIT 阶段的
+ *                   实例还没喂过，`age_ms` 会是"从开机到现在"。
+ */
+void fw_app_heartbeat(const struct app_ctx *ctx, uint32_t *seq, uint32_t *age_ms);
+
+/** 这个实例是不是卡住了（心跳超过 `stale_ms` 没动）。
+ *
+ * @param ctx      目标实例；NULL 或不在 RUNNING → 返回 0。
+ * @param stale_ms 判定阈值；0 → 返回 0（"0 毫秒没动"没有意义）。
+ * @return 1 卡住；0 没卡住（或无从判断）。
+ *         线程与中断：管理器任务里调；ISR 禁止。
+ *         注意事项：判定为 1 **不代表框架能停它**——纯死循环不检查取消位，
+ *                   取消请求对它无效。这个返回值是给管理器/产品仓库做决定用的。
+ */
+int fw_app_is_stalled(const struct app_ctx *ctx, uint32_t stale_ms);
+
 /* ── 事件（步骤 7.1）──────────────────────────────────────────────
  *
  * 事件是**反向**的那条通道：平台在中断里报告"按键按下了""数据来了"，

@@ -35,6 +35,8 @@ static void fw_app_entry(void *arg)
         fw_run_exit(c, FW_APP_STATE_FAILED);
     }
 
+    /* 心跳基准：从来没喂过心跳的 App（纯死循环）也要能算出"多久没动了"。 */
+    __atomic_store_n(&c->hb_base_ms, fw_ops()->clock_ms(), __ATOMIC_RELAXED);
     fw_atomic_store_u32(&c->state, (uint32_t)FW_APP_STATE_RUNNING);
     c->desc->task(&c->pub);
 

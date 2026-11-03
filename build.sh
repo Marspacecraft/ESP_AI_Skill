@@ -122,4 +122,11 @@ if [ -f tools/check_purity.py ]; then
     fi
 fi
 
+#   check_caps.py —— 能力位 ↔ 能力目录双向一致（位号、宏、接口头三处都得对得上）。
+if [ -f tools/check_caps.py ]; then
+    if ! python3 tools/check_caps.py; then
+        rc=1
+    fi
+fi
+
 exit "$rc"

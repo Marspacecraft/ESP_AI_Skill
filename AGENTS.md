@@ -15,11 +15,11 @@
 ## 1. 三十秒上手
 
 ```bash
-./build.sh run     # 唯一构建入口：编译全部用例 + 跑三道门禁 + 跑全部 host 测试
+./build.sh run     # 唯一构建入口：编译全部用例 + 跑四道门禁 + 跑全部 host 测试
 ```
 
-当前基线：**150 条 host 用例全绿** + `check_entry_unique` / `link 面` / `纯 C 边界` 三道门禁 PASS。
-真机：两块板（ESP32-C3 `ai-passport`、ESP32-S3 devkit）各跑同一份 33 条用例，`DEVICE_DONE rc=0`。
+当前基线：**154 条 host 用例全绿** + `check_entry_unique` / `link 面` / `纯 C 边界` / `能力目录` 四道门禁 PASS。
+真机：两块板（ESP32-C3 `ai-passport`、ESP32-S3 devkit）各跑同一份 **37 条**用例，`DEVICE_DONE rc=0`。
 
 | 想知道 | 去哪 |
 |---|---|
@@ -29,7 +29,9 @@
 | 契约为什么这么定 | `docs/pf-ops-decision.md` |
 | 错误码谁产出 | `docs/error-codes.md` |
 | 验收线怎么算过 | `docs/acceptance.md`（A1–A8） |
-| 决策与施工记录 | `实施步骤.md`（§7 决策 D1–D46，§8 推进记录） |
+| 哪个能力位对应哪个头 | `docs/generated/catalog.md`（与 `pf_ops.h` 双向绑定，门禁会红） |
+| 产品仓库怎么把本仓库引进去 | `docs/cross-repo.md` |
+| 决策与施工记录 | `实施步骤.md`（§7 决策 D1–D49，§8 推进记录） |
 
 ---
 

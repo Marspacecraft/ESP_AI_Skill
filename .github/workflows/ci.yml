@@ -1,0 +1,37 @@
+# 唯一的 CI 作业：跑 `./build.sh run`。
+#
+# 它不额外做任何事——本地的构建脚本就是唯一入口，CI 只是把它放到一台干净的机器上，
+# 让"我这儿是绿的"变成"从零 clone 出来也是绿的"。门禁、host 用例、sanitizer 的可选项
+# 全部在 build.sh 里，CI 不许另立一套（那会立刻出现"本地绿、CI 红"的解释成本）。
+name: gates
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # check_link.py 优先用 clang -M 取依赖闭包；ubuntu 镜像自带 cc 但没有 clang，
+      # 缺了会回退到 cc（也能跑），这里显式装上，保证两台机器的判定逻辑一致。
+      - name: Install clang (linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y clang
+
+      - name: Show toolchain
+        run: |
+          cc --version | head -1
+          clang --version | head -1 || true
+          python3 --version
+
+      # 真机不在 CI 里：没有板子，也没有"设备连着"这件事。
+      # 所以 `Device tests` 在 CI 上永远是 NOT RUN —— 这不叫跳过，叫能力边界。
+      - name: Build + gates + host tests
+        run: ./build.sh run

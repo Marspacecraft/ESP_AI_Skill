@@ -24,7 +24,12 @@ static int g_rc1;
 static int g_rc2;
 static int g_used;
 static int g_denied;
+static int g_quota;
+static int g_used2;
 static size_t g_boot_slot_value;
+
+/* 撤销之后任务还该继续跑——计数器由 App 任务自己推，主任务只读。 */
+static int g_ticks;
 
 static void wait_done(void)
 {
@@ -68,6 +73,58 @@ static cm_err_t res_init(app_ctx_t *ctx)
         g_denied = (int)denied;
         break;
 
+    case 5: /* 撤销：额度压到当前用量；再要更多就是 QUOTA,已用的不回收 */
+        {
+            void *p = fw_alloc(64u);
+
+            g_rc1 = (p != NULL) ? (int)CM_OK : -1;
+            (void)fw_res_revoke(ctx);
+            fw_res_usage(ctx, &used, &quota, &denied);
+            g_quota = (int)quota;              /* 压到 64,不是 0(0 = 不限) */
+            g_rc2 = (fw_alloc(8u) == NULL) ? 1 : 0;
+            fw_res_usage(ctx, &used, &quota, &denied);
+            g_used = (int)used;                /* 已用 64 不被撤销收回 */
+            g_denied = (int)denied;
+            fw_free(p);
+        }
+        break;
+
+    case 6: /* 撤销不杀任务:init 期间状态还是 INIT,所以只撤销,状态由用例读 */
+        (void)fw_res_revoke(ctx);
+        g_rc1 = (int)CM_OK;
+        break;
+
+    case 7: /* 零用量时撤销:压到 1 字节,而不是 0(0 会变成"不限") */
+        (void)fw_res_revoke(ctx);
+        fw_res_usage(ctx, &used, &quota, &denied);
+        g_quota = (int)quota;
+        g_rc1 = (fw_alloc(2u) == NULL) ? 1 : 0;
+        {
+            void *p = fw_alloc(1u);
+
+            g_rc2 = (p != NULL) ? 1 : 0;
+            fw_free(p);
+        }
+        break;
+
+    case 8: /* 撤销是"上限",不是"拉黑":释放之后同样大小还能再要 */
+        {
+            void *p = fw_alloc(64u);
+
+            (void)fw_res_revoke(ctx);
+            fw_free(p);
+            {
+                void *q = fw_alloc(64u);
+
+                g_rc1 = (q != NULL) ? 1 : 0;
+                fw_free(q);
+            }
+            fw_res_usage(ctx, &used, &quota, &denied);
+            g_used = (int)used;
+            g_used2 = (int)quota;
+        }
+        break;
+
     default:
         break;
     }
@@ -76,7 +133,14 @@ static cm_err_t res_init(app_ctx_t *ctx)
 }
 
 static void res_exit(app_ctx_t *ctx) { (void)ctx; }
-static void res_task(app_ctx_t *ctx) { (void)ctx; for (;;) { fw_delay_block(50u); } }
+static void res_task(app_ctx_t *ctx)
+{
+    (void)ctx;
+    for (;;) {
+        __atomic_add_fetch(&g_ticks, 1, __ATOMIC_RELAXED);
+        fw_delay_block(50u);
+    }
+}
 
 static const app_desc_t res_desc = {
     .id = 47u, .name = "res", .init = res_init, .exit = res_exit, .task = res_task,
@@ -95,6 +159,9 @@ static struct fw_app_ctx *start(int scenario)
     g_rc2 = -1;
     g_used = -1;
     g_denied = -1;
+    g_quota = -1;
+    g_used2 = -1;
+    g_ticks = 0;
     g_boot_slot_value = 0u;
 
     apps[0] = &res_desc;
@@ -207,6 +274,67 @@ TT_CASE(quota_denial_is_quota_not_nomem)
     reap(c);
 }
 
+/* ---------------------------------------------------------------- 撤销 */
+
+TT_CASE(revoke_caps_allocations_at_current_usage)
+{
+    struct fw_app_ctx *c = start(5);
+
+    TT_ASSERT_TRUE(c != NULL);
+    TT_ASSERT_INT((int)CM_OK, g_rc1);
+    TT_ASSERT_INT(64, g_quota);      /* 撤销 = 把上限压到"此刻已用" */
+    TT_ASSERT_INT(1, g_rc2);         /* 再要 8 字节:拒 */
+    TT_ASSERT_INT(64, g_used);       /* 已占的那 64 字节不被撤销收回 */
+    TT_ASSERT_INT(1, g_denied);      /* 被拒的分配记一次 */
+    stop_it(c);
+    reap(c);
+}
+
+TT_CASE(revoke_does_not_stop_the_app)
+{
+    struct fw_app_ctx *c;
+
+    c = start(6);
+    TT_ASSERT_TRUE(c != NULL);
+    TT_ASSERT_INT((int)CM_OK, g_rc1);
+    TT_ASSERT_INT((int)FW_APP_STATE_RUNNING, (int)fw_app_state(c));  /* 撤销不改状态 */
+    TT_ASSERT_INT(0, (int)__atomic_load_n(&c->cancel, __ATOMIC_ACQUIRE));
+    /* 撤销之后任务继续跑:等两轮切片,计数必须还在涨。 */
+    {
+        int before = flag_get(&g_ticks);
+
+        pf_platform_ops()->sleep_ms(120u);
+        TT_ASSERT_TRUE(flag_get(&g_ticks) > before);
+    }
+    TT_ASSERT_INT((int)FW_APP_STATE_RUNNING, (int)fw_app_state(c));
+    stop_it(c);
+    reap(c);
+}
+
+TT_CASE(revoke_on_zero_usage_is_one_byte_not_unlimited)
+{
+    struct fw_app_ctx *c = start(7);
+
+    TT_ASSERT_TRUE(c != NULL);
+    TT_ASSERT_INT(1, g_quota);       /* 压到 0 会变成"不限",所以取 1 */
+    TT_ASSERT_INT(1, g_rc1);         /* 2 字节:拒 */
+    TT_ASSERT_INT(1, g_rc2);         /* 1 字节:还允许 */
+    stop_it(c);
+    reap(c);
+}
+
+TT_CASE(revoke_is_a_ceiling_not_a_blacklist)
+{
+    struct fw_app_ctx *c = start(8);
+
+    TT_ASSERT_TRUE(c != NULL);
+    TT_ASSERT_INT(1, g_rc1);         /* 释放之后,同样大小还能再要 */
+    TT_ASSERT_INT(0, g_used);        /* 用掉的那次已归还 */
+    TT_ASSERT_INT(64, g_used2);      /* 上限仍是 64,没被释放动作改掉 */
+    stop_it(c);
+    reap(c);
+}
+
 #if defined(ESP_PLATFORM)
 int res_on_device_main(void)
 #else
@@ -218,5 +346,9 @@ int main(void)
     TT_RUN(exit_releases_app_lifetime_slots_exactly_once);
     TT_RUN(boot_lifetime_slot_survives_exit);
     TT_RUN(quota_denial_is_quota_not_nomem);
+    TT_RUN(revoke_caps_allocations_at_current_usage);
+    TT_RUN(revoke_does_not_stop_the_app);
+    TT_RUN(revoke_on_zero_usage_is_one_byte_not_unlimited);
+    TT_RUN(revoke_is_a_ceiling_not_a_blacklist);
     return tt_summary();
 }

@@ -20,6 +20,7 @@ default: allow
 # 便于将来合并时对账；一个人的写权看下面各行的并集，不看身份。
 
 role 1  sysapp     apps/system/            tests/sys/             docs/sys/
+                   apps/app_manifest.c    apps/app_manifest.h
 role 2  aiapp      apps/demo/              apps/app_manifest.c    apps/app_manifest.h
                    tests/app/              docs/app/
 role 3  framework  framework/              tests/framework/       docs/framework/
@@ -33,7 +34,7 @@ role 5  api        api/                    common/
 # 两类人写的文件：AI 一律不写（发现不对 → 报告，不要自己改）
 # `tools/` 是**考卷本身**：门禁脚本如果由被测者修改，"约束"就只剩自觉。
 # 门禁有 bug 属于契约变更，走评审，不走"顺手改一下"。
-nobody policy.txt  AGENTS.md  实施步骤.md  build.sh  tools/
+nobody policy.txt  AGENTS.md  实施步骤.md  build.sh  tools/  .github/
 
 # ── link（可链接集合）──────────────────────────────────────────
 # App 与框架：common/ 是所有人的公共库；api/af_api/ 是 App 的门面；

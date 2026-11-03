@@ -24,7 +24,8 @@ role 2  aiapp      apps/demo/              apps/app_manifest.c    apps/app_manif
                    tests/app/              docs/app/
 role 3  framework  framework/              tests/framework/       docs/framework/
 role 4  platform   platform/host-fake/     platform/metalio_eink_4_plus/   tests/platform/
-                   platform/ai-passport-c3/  docs/platform/ framework/include/
+                   platform/ai-passport-c3/  docs/platform/
+                   platform/esp32s3-devkit/ framework/include/
 role 5  api        api/                    common/
                    tests/support/          tests/tinytest.h       platform/port/
                    docs/
@@ -49,5 +50,5 @@ link 3 4 5   platform/port/
 #           命中 nobody 一律拒；命中 role 要身份匹配；谁都没覆盖按 default。
 #           策略自身自相矛盾时它拒绝下判断（退出码 2），不会拿坏规则判人。
 #
-# link 面：**还没接** —— 要 clang -M 取依赖闭包（正则看不见 #include_next 与 ..）。
-#          在那之前，下面的 link 行是"约定"，不是"门禁"。
+# link 面：**已接上** —— python3 tools/check_link.py 用 clang -M 取依赖闭包
+#          （正则看不见 #include_next 与 ..），逐 tag 判"闭包 ⊆ link 集合"。

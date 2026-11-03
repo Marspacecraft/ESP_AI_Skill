@@ -41,7 +41,7 @@ list_lib_srcs() {
         # platform/ai-passport-c3/ 是 ESP-IDF 端口（include freertos/ 与 esp_timer.h），
         # host 上编不过，必须排除；它的验收走 tests/port/idf 的独立 IDF 工程。
         find common/src framework/src platform apps -type f -name '*.c' \
-            ! -path 'platform/ai-passport-c3/*' 2>/dev/null
+            ! -path 'platform/ai-passport-c3/*' ! -path 'platform/esp32s3-devkit/*' 2>/dev/null
         find tests/support -type f -name '*.c' ! -name 'test_*.c' 2>/dev/null
     } | sort
 }

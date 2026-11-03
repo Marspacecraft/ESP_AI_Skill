@@ -85,8 +85,16 @@ typedef void (*app_task_fn)(app_ctx_t *ctx);
  *  返回 NULL）。两处数字不一致时以平台为准；身份 5 的补齐清单里有一条是把它们
  *  用静态断言钉在一起（`§6.7`）。
  *  为什么不让 App 自己随便写小：栈溢出的症状是随机的，启动时就拒绝比运行期
- *  踩坏内存好定位。 */
-#define APP_STACK_MIN  1024u
+ *  踩坏内存好定位。
+ *
+ *  为什么是 3072 而不是 1024（实测，ESP32-C3 + ESP-IDF 5.5.3）：
+ *  在一张 1024 字节的栈上只调一次 `fw_logp()`（4 个参数 + 120 字节字符串），
+ *  设备直接 `Guru Meditation Error: ... (Stack protection fault)` 复位；
+ *  同样的调用在 2048 字节栈上安全返回。`fw_vlog()` 自己占 256 字节缓冲，
+ *  再叠 newlib 的 `vsnprintf()`，1 KB 连"能打一行日志"都做不到。
+ *  2048 是实测下限，取 3072 留一档余量——App 的栈里除了日志还要放它自己的
+ *  局部变量。 */
+#define APP_STACK_MIN  3072u
 
 /** 一个 App 的全部声明。**由清单持有，必须是静态常量**（框架不拷贝名字）。 */
 typedef struct app_desc {

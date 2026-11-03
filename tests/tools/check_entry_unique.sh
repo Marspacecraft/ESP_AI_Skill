@@ -8,6 +8,8 @@
 # 它只认"定义"，不认"声明/调用/注释"：
 #   - 定义 = 该行以 `app_main` 开头、且行内有 `(`、后续文本里有 `{`
 #   - 被允许的那一处：framework/src/fw_main.c
+#   - `tests/` 下不算：那里的固件是**自检工程**（如 tests/port/idf 的 ESP-IDF
+#     工程），它有自己的入口是正常的；被检查的是产品固件的入口。
 #
 # 用法：tests/tools/check_entry_unique.sh [仓库根]
 # 退出码：0 唯一；1 有多处；2 用法/环境问题（**2 不是通过**）。
@@ -19,8 +21,9 @@ cd "$ROOT" || exit 2
 
 ALLOWED="framework/src/fw_main.c"
 hits=$(grep -rlnE '^[[:space:]]*(extern[[:space:]]+"C"[[:space:]]+)?void[[:space:]]+app_main[[:space:]]*\(' \
-        --include='*.c' --include='*.cc' --include='*.cpp' . 2>/dev/null \
-      | sed 's|^\./||' | sort)
+        --include='*.c' --include='*.cc' --include='*.cpp' \
+        --exclude-dir=build . 2>/dev/null \
+      | sed 's|^\./||' | grep -v '^tests/' | sort)
 
 if [ -z "$hits" ]; then
     echo "check_entry_unique: FAIL -- 没有找到 app_main 的定义（入口没了）"

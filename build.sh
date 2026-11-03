@@ -38,7 +38,10 @@ list_lib_srcs() {
     # tests/support 里的夹具可以带实现（.c），但 `test_*.c` 是**用例**，
     # 每个都有自己的 main——混进库源会让每个二进制撞上重复符号 `_main`。
     {
-        find common/src framework/src platform apps -type f -name '*.c' 2>/dev/null
+        # platform/ai-passport-c3/ 是 ESP-IDF 端口（include freertos/ 与 esp_timer.h），
+        # host 上编不过，必须排除；它的验收走 tests/port/idf 的独立 IDF 工程。
+        find common/src framework/src platform apps -type f -name '*.c' \
+            ! -path 'platform/ai-passport-c3/*' 2>/dev/null
         find tests/support -type f -name '*.c' ! -name 'test_*.c' 2>/dev/null
     } | sort
 }

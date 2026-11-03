@@ -26,7 +26,7 @@ static void demo_task(app_ctx_t *ctx)
 }
 
 static const app_desc_t demo_desc = {
-    2u, "demo", demo_init, demo_exit, demo_task, 0u
+    2u, "demo", demo_init, demo_exit, demo_task, 0u, APP_STACK_MIN
 };
 
 static const app_desc_t *const demo_apps[] = { &demo_desc };

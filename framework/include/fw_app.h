@@ -52,6 +52,14 @@ typedef void (*app_task_fn)(app_ctx_t *ctx);
 #define APP_ID_MIN      2u
 #define APP_ID_MAX      254u
 
+/** App 主任务的最小栈（字节）。**必须与 `PF_TASK_MIN_STACK` 一致**——
+ *  框架先用本值挡一道（启动前就报错），平台再用自己的值挡一道（`task_create`
+ *  返回 NULL）。两处数字不一致时以平台为准；身份 5 的补齐清单里有一条是把它们
+ *  用静态断言钉在一起（`§6.7`）。
+ *  为什么不让 App 自己随便写小：栈溢出的症状是随机的，启动时就拒绝比运行期
+ *  踩坏内存好定位。 */
+#define APP_STACK_MIN  1024u
+
 /** 一个 App 的全部声明。**由清单持有，必须是静态常量**（框架不拷贝名字）。 */
 typedef struct app_desc {
     uint32_t id;             /**< 2..254；0/1 保留；重复 = 启动失败 */
@@ -60,6 +68,7 @@ typedef struct app_desc {
     app_exit_fn exit;        /**< 必需；NULL 视为清单错误（否则资源无人回收） */
     app_task_fn task;        /**< 必需；NULL 视为清单错误 */
     uint32_t flags;          /**< `APP_FLAG_SYSTEM` 等位；未知位必须为 0 */
+    uint32_t stack_bytes;    /**< 主任务栈，>= `APP_STACK_MIN`；**平台按此分配，不许自动抬栈** */
 } app_desc_t;
 
 /** 一份清单。**count 与指针必须自洽**：不靠 NULL 结尾（NULL 是合法的描述体指针，

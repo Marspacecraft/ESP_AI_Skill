@@ -24,7 +24,7 @@ role 2  aiapp      apps/demo/              apps/app_manifest.c    apps/app_manif
                    tests/app/              docs/app/
 role 3  framework  framework/              tests/framework/       docs/framework/
 role 4  platform   platform/host-fake/     platform/metalio_eink_4_plus/   tests/platform/
-                   docs/platform/
+                   docs/platform/ framework/include/
 role 5  api        api/                    common/                tools/
                    tests/support/          tests/tinytest.h       platform/port/
                    docs/

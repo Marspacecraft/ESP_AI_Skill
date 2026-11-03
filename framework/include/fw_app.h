@@ -4,10 +4,13 @@
  * （`fw_manifest_t`）、能调哪些东西（`fw_delay_block` / `fw_alloc` / `fw_free` /
  * `fw_log` / `fw_logp`）。
  *
- * 它与 `api/af_api/app.h` 的分工（2026-11-02 定，见 实施步骤.md §7 D11）：
- *   - **本头是唯一出处**：回调签名、`app_desc_t`、`fw_manifest_t`、使用面函数都在这里；
- *   - `api/af_api/app.h` 只做两件事：include 本头 + 定义 `struct app_ctx` 的可见成员。
- *   两边重复定义是"同一事实两个家"，早晚漂移；所以宁可让 App 的头多 include 一行。
+ * 它与 `api/af_api/app.h` 的分工（D11，2026-11-03 由 D17 修订）：
+ *   - **本头是唯一出处**：回调签名、`app_desc_t`、`fw_manifest_t`、使用面函数、
+ *     `struct app_ctx` 的布局，全都在这里；
+ *   - `api/af_api/app.h` 只做一件事：include 本头。
+ *   为什么 `app_ctx` 也搬进来：框架要实现它（要往里放状态、取消位、任务句柄），
+ *   而框架不能反向 include `api/`——那是 App 的包。一个只有 App 能看见、框架
+ *   看不见的结构体，框架是没法实现的（D17）。
  *
  * 硬约束（读权不传递的第一次实战）：
  *   **本头只准 include `common/include/`。** 不许 include `platform/port/`——
@@ -23,8 +26,32 @@
 extern "C" {
 #endif
 
-/** App 上下文。**这里只有前向声明**——完整定义在 `api/af_api/app.h`，
- *  因为"App 能看见哪些槽位"是 App 侧的决定，不是框架侧的决定。 */
+/** 一个 App 能登记的资源槽位数。v1 上限，要更多 = 改契约（先过评审）。
+ *  槽位由框架在退出时统一回收，App 只负责把地址交给 `res_track()`
+ *  （阶段 6 才有 `res_track`，在那之前这里只是布局预留）。 */
+#define APP_CTX_SLOTS 8u
+
+/** App 上下文。框架分配、框架填，**App 只读**。
+ *
+ * 三个区的规矩：
+ *   - `id`：本 App 的 id（2..254），只读。**不要再加 `app_id()` 函数**——
+ *     字段已经是唯一出处，加函数就是同一事实两个家（D13）。
+ *   - `slots[]`：资源槽位。App 把 `&ctx->slots[i]` 交给 `res_track()`，
+ *     由框架写入真实句柄、由框架在退出时回收；**App 不要自己往里面写**。
+ *   - `fw`：框架自留地（指向框架内部上下文的不透明指针）。App 读或写它
+ *     都是未定义行为；它存在只是因为框架需要从 App 手里的这个地址回到
+ *     自己的状态（D16）。
+ *
+ * 为什么不用"完全隐藏 + 侧表"：`ctx` 是框架分配、App 持有的，App 必须能拿到
+ * 槽位地址；藏起来只会逼出一个全局查表函数，那才是真的耦合。所以选择
+ * **布局可见、写入权分明**。
+ */
+struct app_ctx {
+    uint32_t id;                      /**< 只读：本 App 的 id */
+    void *slots[APP_CTX_SLOTS];       /**< 框架写、框架回收；App 只取地址 */
+    void *fw;                         /**< 框架自留；App 不碰（D16） */
+};
+
 typedef struct app_ctx app_ctx_t;
 
 /* ── 三个回调 ──────────────────────────────────────────────────── */

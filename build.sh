@@ -35,7 +35,12 @@ OUT=build
 mkdir -p "$OUT"
 
 list_lib_srcs() {
-    find common/src framework/src platform apps -type f -name '*.c' 2>/dev/null | sort
+    # tests/support 里的夹具可以带实现（.c），但 `test_*.c` 是**用例**，
+    # 每个都有自己的 main——混进库源会让每个二进制撞上重复符号 `_main`。
+    {
+        find common/src framework/src platform apps -type f -name '*.c' 2>/dev/null
+        find tests/support -type f -name '*.c' ! -name 'test_*.c' 2>/dev/null
+    } | sort
 }
 
 list_tests() {

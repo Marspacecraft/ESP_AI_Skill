@@ -75,6 +75,92 @@ const app_desc_t *fw_app_at(uint32_t index);
  *  线程与中断：无任务运行时才可调。 */
 void fw_reset(void);
 
+/* ── App 运行期上下文与伪阻塞 ──────────────────────────────────── */
+
+/** 伪阻塞的单片长度上限（毫秒）。架构约束是"单段不可打断等待 < 200ms"，
+ *  框架取 20ms——留 10 倍余量给平台调度抖动。 */
+#define FW_DELAY_SLICE_MS 20u
+
+/** App 的六个状态。`EMPTY` 只在上下文刚分配、任务还没起来时出现。 */
+typedef enum fw_app_state_e {
+    FW_APP_STATE_EMPTY = 0,
+    FW_APP_STATE_INIT,
+    FW_APP_STATE_RUNNING,
+    FW_APP_STATE_STOPPING,
+    FW_APP_STATE_STOPPED,
+    FW_APP_STATE_FAILED
+} fw_app_state_e;
+
+/** 框架侧的 App 上下文。App 拿到的 `app_ctx_t*` 就是它的 `pub` 成员。
+ *
+ * `cancel` / `state` / `exit_calls` / `in_exit` 是**跨任务可见**的：任务自己写，
+ * 别的任务（管理器、测试、退出路径）读。所以它们必须 volatile，且只能用
+ * "写一个 32 位整数"的表达——没有锁，也不该有锁。
+ */
+struct fw_app_ctx {
+    app_ctx_t pub;                  /* 必须是第一个成员：App 拿到的是 &pub */
+    const app_desc_t *desc;
+    volatile uint32_t cancel;       /* 取消位：1 = 有停止请求 */
+    volatile uint32_t state;        /* fw_app_state_e */
+    volatile uint32_t exit_calls;   /* exit() 被调用过几次（只该是 0 或 1） */
+    volatile uint32_t in_exit;      /* 1 = 正在跑 exit()：取消位失效 */
+};
+
+/** 分配一个上下文并做静态初始化；**不创建任务**。
+ *
+ * @param desc 注册表里那份描述体；不得为 NULL，`desc->id` 已在 `fw_init()` 校验过。
+ * @return 上下文指针；平台表未绑或内存不足返回 NULL。
+ *         线程与中断：仅初始化阶段；ISR 禁止。
+ *         注意事项：用 `fw_ops()->mem_alloc` 分配，必须 `fw_app_ctx_free()` 释放；
+ *                   失败时不留任何状态。
+ */
+struct fw_app_ctx *fw_app_ctx_new(const app_desc_t *desc);
+
+/** 释放上下文。**只能在任务已经结束之后调**（任务还在跑就释放 = UAF）。 */
+void fw_app_ctx_free(struct fw_app_ctx *c);
+
+/** 为上下文创建任务，任务里依次跑 `init()` → `task()`。
+ *
+ * @param c `fw_app_ctx_new()` 的产物。
+ * @return `CM_OK` 任务已创建；`CM_ERR_NOMEM` 平台拒绝建任务；`CM_ERR_STATE`
+ *         `c` 为 NULL 或已经启动过。
+ *         线程与中断：仅初始化阶段；ISR 禁止。
+ *         注意事项：任务入口会把 `state` 推成 INIT→RUNNING；`init()` 失败或
+ *                   `task()` 返回都会走退出路径（`fw_run_exit`），那条路径
+ *                   **不返回**，所以这里看到的 `state` 之后还会变。
+ */
+cm_err_t fw_app_start(struct fw_app_ctx *c);
+
+/** 当前上下文的状态（`fw_app_state_e`）。`c` 为 NULL 时返回 `FW_APP_STATE_EMPTY`。 */
+fw_app_state_e fw_app_state(const struct fw_app_ctx *c);
+
+/** `exit()` 至今被调用过几次。正常是 1（含启动失败）。 */
+uint32_t fw_app_exit_calls(const struct fw_app_ctx *c);
+
+/** 置取消位。可以在别的任务里调，也可以在测试里调。
+ *  线程与中断：可以跨任务；ISR 里能调（只写一个整数），但不在 v1 承诺范围内。 */
+void fw_app_request_cancel(struct fw_app_ctx *c);
+
+/** 取**当前任务**的上下文；不在 App 任务里时返回 NULL。
+ *  线程与中断：靠 C11 `_Thread_local` 实现，每个任务各一份；ISR 里返回 NULL。 */
+struct fw_app_ctx *fw_current_ctx(void);
+
+/** 走完退出路径并结束当前任务——**永不返回**。
+ *
+ * @param c         当前任务的上下文。
+ * @param end_state 终态：`STOPPED`（被取消/被停止）或 `FAILED`（init 失败或
+ *                  task 返回）。
+ *         线程与中断：只能在 App 任务里调；ISR 禁止。
+ *         注意事项：五步顺序是契约——①先清取消位（否则 exit() 里的阻塞会再
+ *                   命中一次、永不结束）②`exit()` 恰好调用一次
+ *                   ③（阶段 6 才有的资源回收）④置终态 ⑤结束任务。
+ */
+void fw_run_exit(struct fw_app_ctx *c, fw_app_state_e end_state)
+#if defined(__GNUC__) || defined(__clang__)
+    __attribute__((noreturn))
+#endif
+    ;
+
 #ifdef __cplusplus
 }
 #endif

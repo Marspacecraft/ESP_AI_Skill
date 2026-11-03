@@ -39,6 +39,7 @@
 
 CF_UNUSED static struct {
     pf_ops_t ops;      /* 给框架看的表：除时钟两项外与真表一致 */
+    void (*sleep_hook)(void); /* 每次 sleep 之后调一次；取消注入靠它（2.5b） */
     uint32_t now_ms;   /* 虚拟时间 */
     uint32_t sleep_calls;
     uint32_t sleep_total_ms;
@@ -60,6 +61,9 @@ CF_UNUSED static void cf_sleep_ms(uint32_t ms)
 {
     g_cf.sleep_calls++;
     if (ms == 0u) {
+        if (g_cf.sleep_hook != NULL) {
+            g_cf.sleep_hook();
+        }
         return;
     }
     if (g_cf.slice_count < CLOCK_FAKE_MAX_SLICES) {
@@ -73,6 +77,16 @@ CF_UNUSED static void cf_sleep_ms(uint32_t ms)
     }
     g_cf.sleep_total_ms += ms;
     g_cf.now_ms += ms;
+    if (g_cf.sleep_hook != NULL) {
+        g_cf.sleep_hook();
+    }
+}
+
+/** 装一个"每次 sleep 之后调一次"的钩子；传 NULL 摘掉。
+ *  用途：在框架睡眠的**中途**注入取消（2.5b），而不是在调用前假装取消。 */
+CF_UNUSED static void clock_fake_set_sleep_hook(void (*fn)(void))
+{
+    g_cf.sleep_hook = fn;
 }
 
 /** 用真实表初始化夹具：`real` 的九项会被转发，只有时钟两项被替换。
@@ -135,6 +149,12 @@ CF_UNUSED static uint32_t clock_fake_sleep_total_ms(void)
 CF_UNUSED static uint32_t clock_fake_max_slice_ms(void)
 {
     return g_cf.max_slice_ms;
+}
+
+/** 记录到的切片个数（不含 `ms==0` 的让出）。 */
+CF_UNUSED static uint32_t clock_fake_slice_count(void)
+{
+    return g_cf.slice_count;
 }
 
 /** 第 index 次切片的长度；越界返回 0。 */

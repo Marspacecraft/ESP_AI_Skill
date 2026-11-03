@@ -24,6 +24,10 @@ int main(void);
 /* 框架行为的真机验收（tests/port/test_app_behavior.c），同样把 `main` 改名后编进来。 */
 int app_behavior_main(void);
 
+/* 事件层的真机验收（tests/port/test_event_on_device.c）：含"两个生产者一个 topic"
+ * 的丢帧测量，双核板子上才有意义。 */
+int event_on_device_main(void);
+
 /* ------------------------------------------------------------------ */
 /* 日志栈探针                                                          */
 /* ------------------------------------------------------------------ */
@@ -90,7 +94,7 @@ void app_main(void)
 {
     int rc;
 
-    printf("\n=== ESP_AI_Skill 端口契约（ESP32-C3 真机）===\n");
+    printf("\n=== ESP_AI_Skill 端口契约（%s 真机）===\n", CONFIG_IDF_TARGET);
     (void)fflush(stdout);
 
     rc = main();
@@ -98,6 +102,12 @@ void app_main(void)
     printf("\n=== 框架行为验收（同一份断言，host 也跑）===\n");
     (void)fflush(stdout);
     if (app_behavior_main() != 0) {
+        rc = 1;
+    }
+
+    printf("\n=== 事件层验收（含双生产者丢帧测量）===\n");
+    (void)fflush(stdout);
+    if (event_on_device_main() != 0) {
         rc = 1;
     }
 

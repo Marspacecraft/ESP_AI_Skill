@@ -23,8 +23,9 @@
 
 | 想知道 | 去哪 |
 |---|---|
+| **项目总览（是什么、为什么、现在到哪）** | [`README.md`](README.md)（10 节：三个赌注、六条机制、有什么/没什么、术语、已知边界） |
 | **构建框架怎么搭的、命令怎么用** | [`docs/build-and-usage.md`](docs/build-and-usage.md)（详细版：`build.sh` 行为、四道门禁、写 App、接板、真机流程、失败速查） |
-| 一个 App 最短能多短 | `apps/demo/app_demo.c`（80 行，含注释） |
+| 一个 App 最短能多短 | `apps/demo/app_demo.c`（82 行，含注释） |
 | App 能调什么 | `api/af_api/app.h`（生命周期 + 使用面）、`res.h`、`evt.h`、`svc.h` |
 | 板子要实现什么 | `platform/port/pf_ops.h`（九项，每项一段注释，**这是接板唯一必读**） |
 | 契约为什么这么定 | `docs/pf-ops-decision.md` |
@@ -32,7 +33,7 @@
 | 验收线怎么算过 | `docs/acceptance.md`（A1–A8） |
 | 哪个能力位对应哪个头 | `docs/generated/catalog.md`（与 `pf_ops.h` 双向绑定，门禁会红） |
 | 产品仓库怎么把本仓库引进去 | `docs/cross-repo.md` |
-| 决策与施工记录 | `实施步骤.md`（§7 决策 D1–D50，§8 推进记录） |
+| 决策与施工记录 | `实施步骤.md`（§7 决策 D1–D51，§8 推进记录） |
 
 ---
 

@@ -129,6 +129,79 @@ struct fw_app_ctx *fw_live_at(uint32_t index);
  *                   等于把"谁负责停它"这件事弄丢了。
  */
 void fw_live_remove(struct fw_app_ctx *c);
+/* ── 服务注册表（步骤 5.1）──────────────────────────────────────
+ *
+ * 一个"服务"= 某个 App 对外提供的、别人可以按名字找过来的能力（存储、显示、
+ * 网络……）。表里只有三件事：**谁提供**（owner）、**在不在**（registered）、
+ * **能不能用**（owner 的状态）。
+ *
+ * 三条判定（`fw_svc_ready()` 的返回值，顺序就是优先级）：
+ *   - 表里没有          → `CM_ERR_NOT_SUPPORTED`（这块板/这个产品没这个能力）
+ *   - 有，但 owner 没在跑（或已死、表项还在）→ `CM_ERR_UNAVAILABLE`（**可以重试**）
+ *   - 有且在跑          → `CM_OK`
+ *
+ * 为什么"没注册"与"注册了但崩了"必须分开：前者重试一万次也没用（该改的是
+ * 产品配置），后者重试是对的（管理器可能正在重启它）。合成一个错误码，
+ * 调用方就只有"放弃"一个选项。
+ */
+
+/** 服务 id。**0 永远无效**；具体编号是编译期契约，加服务 = 加编号（见 §7）。 */
+typedef uint8_t fw_svc_id_t;
+
+/** 服务表容量。64 个服务在 v1 已经远超需要；表是静态的，不占堆。 */
+#define FW_SVC_MAX 64u
+
+/** 注册一个服务。**只能由服务自己的 App 调**，且必须在自己还 RUNNING 时调。
+ *
+ * @param id    服务 id，`1..FW_SVC_MAX-1`。
+ * @param owner 提供者上下文，不得为 NULL；通常是 `fw_current_ctx()`。
+ * @return `CM_OK`；`CM_ERR_INVALID` 参数非法或 id 越界；
+ *         `CM_ERR_BUSY` 已被**别的** owner 占着；
+ *         `CM_ERR_STATE` 自己已经注册过（重复注册是 App 的 bug，不是幂等操作）。
+ *         **表项还在但 owner 已经死了时，注册是"认领"**（返回 `CM_OK`）——那就是重试成功。
+ *         线程与中断：App 任务里调；ISR 禁止。无阻塞、无伪阻塞语义
+ *                     （**不会因为取消位而结束当前任务**）。
+ *         注意事项：App 退出时**表项保留、owner 清空**（`fw_run_exit()` 的 ③ 步）——
+ *                   保留是为了让调用方看到 UNAVAILABLE（该重试）而不是
+ *                   NOT_SUPPORTED（该放弃）。所以 `exit()` 里**不需要**调
+ *                   `fw_svc_unregister()`；想彻底摘掉用 `fw_svc_unregister()`。
+ */
+cm_err_t fw_svc_register(fw_svc_id_t id, struct fw_app_ctx *owner);
+
+/** 摘掉一个服务。
+ *
+ * @param id    服务 id。
+ * @param owner 必须与注册时一致，否则 `CM_ERR_STATE`（防止 A 把 B 的服务摘了）。
+ * @return `CM_OK`；未注册 → `CM_ERR_NOT_SUPPORTED`；owner 不符 → `CM_ERR_STATE`。
+ *         线程与中断：App 任务里调；ISR 禁止。非阻塞。
+ */
+cm_err_t fw_svc_unregister(fw_svc_id_t id, struct fw_app_ctx *owner);
+
+/** 谁在提供这个服务。
+ *
+ * @param id 服务 id。
+ * @return owner 指针；未注册返回 NULL。
+ *         线程与中断：任意任务可调；ISR 禁止（表项可能正在被另一个任务改）。
+ *         注意事项：返回的指针可能在下一次 `fw_run_exit()` 之后失效——
+ *                   要用它就得先确认对方还在跑（`fw_app_state()`）。
+ */
+struct fw_app_ctx *fw_svc_owner(fw_svc_id_t id);
+
+/** 这个服务现在能不能用。
+ *
+ * @param id 服务 id。
+ * @return `CM_OK` / `CM_ERR_NOT_SUPPORTED` / `CM_ERR_UNAVAILABLE`（见上）。
+ *         线程与中断：任意任务可调；ISR 禁止。**非阻塞、不查取消位**——
+ *                    它只是查表，没有"等"，所以不适用伪阻塞那套。
+ */
+cm_err_t fw_svc_ready(fw_svc_id_t id);
+
+/** 把某个 owner 注册的服务全部摘掉。**只给 `fw_run_exit()` 用**。 */
+void fw_svc_drop_owner(struct fw_app_ctx *owner);
+
+/** 清空服务表。**只给 `fw_reset()` 用**。 */
+void fw_svc_forget(void);
+
 
 /** 清空活实例表。**只给 `fw_reset()` 用**。 */
 void fw_boot_forget(void);

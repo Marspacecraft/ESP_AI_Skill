@@ -7,7 +7,9 @@
  * 顺序（改顺序 = 改契约）：
  *   ① 先清取消位 —— 否则 `exit()` 里再调阻塞接口，会当场又命中一次取消。
  *   ② `exit()` 恰好一次 —— 用 `exit_calls` 做闸门，不靠调用方自觉。
- *   ③ 回收 `res_track()` 登记的槽位 —— 阶段 6 才有 `res_track`，现在是空步。
+ *   ③ 摘掉本 owner 注册的服务、回收 `res_track()` 登记的槽位。
+ *      `res_track()` 要阶段 6，服务表现在就有（5.1）——**服务必须在 owner 死后消失**，
+ *      否则别人查到的是一个永远 `UNAVAILABLE` 的表项，而不是"这块板没这能力"。
  *   ④ 置终态。
  *   ⑤ 结束当前任务 —— 平台保证"不返回"。
  *
@@ -40,7 +42,10 @@ void fw_run_exit(struct fw_app_ctx *c, fw_app_state_e end_state)
         c->desc->exit(&c->pub);
     }
 
-    /* ③ 资源回收：`res_track()` 阶段 6 才实现，这里暂时没有可回收的东西。 */
+    /* ③ 摘服务 + 回收资源。
+     *    服务先摘：它引用的是上下文本身，若等到上下文被管理器释放再摘，
+     *    查表的一方会拿到一根野指针。`res_track()` 要阶段 6，目前是空步。 */
+    fw_svc_drop_owner(c);
 
     /* ④ 终态。 */
     fw_atomic_store_u32(&c->state, (uint32_t)end_state);

@@ -35,7 +35,7 @@ python3 tools/check_workspace_policy.py --as 2 framework/src/fw_ctx.c
 **碰不到**：`framework/`、`platform/`、`api/`、`common/`、`tools/`、`build.sh`、`policy.txt`、
 `AGENTS.md`。要改它们 = 换身份，先报告。
 
-App 能 include 的只有五个头：`api/af_api/{app,res,evt,svc}.h`（使用面）与 `mgr.h`（控制面，
+App 能 include 的只有六个头：`api/af_api/{app,res,evt,svc,cap,uart}.h`（使用面）与 `mgr.h`（控制面，
 只有管理器角色要用）。看到别的名字就当它不存在。
 
 ---

@@ -17,6 +17,21 @@
  */
 #include "framework/src/fw_internal.h"
 
+void fw_cancel_point(void)
+{
+    struct fw_app_ctx *c = fw_current_ctx();
+
+    if (c == NULL) {
+        return; /* 不在 App 任务里：没有取消位可查 */
+    }
+    if (CM_ATOMIC_LOAD(&c->in_exit, CM_MEM_ACQUIRE) != 0u) {
+        return; /* 已经在 exit() 里：取消位失效，否则会在清理中途二次结束任务 */
+    }
+    if (CM_ATOMIC_LOAD(&c->cancel, CM_MEM_ACQUIRE) != 0u) {
+        fw_run_exit(c, FW_APP_STATE_STOPPED); /* 不返回 */
+    }
+}
+
 void fw_delay_block(uint32_t ms)
 {
     const pf_ops_t *ops = fw_ops();
@@ -32,10 +47,7 @@ void fw_delay_block(uint32_t ms)
     fw_heartbeat_touch(c);
     for (;;) {
         /* 每片之前查一次；最后一片之后回到这里，所以"最后一片里被取消"也能抓到。 */
-        if (c != NULL && CM_ATOMIC_LOAD(&c->in_exit, CM_MEM_ACQUIRE) == 0u &&
-            CM_ATOMIC_LOAD(&c->cancel, CM_MEM_ACQUIRE) != 0u) {
-            fw_run_exit(c, FW_APP_STATE_STOPPED); /* 不返回 */
-        }
+        fw_cancel_point();
         if (remaining == 0u) {
             break;
         }

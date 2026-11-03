@@ -8,8 +8,8 @@
  * 与 `platform/ai-passport-c3/` 的区别只有三条，都写进 README：
  * 双核、有 PSRAM、日志走 UART 桥而不是 USB-Serial-JTAG。
  */
-#ifndef PF_ESPIDF_H
-#define PF_ESPIDF_H
+#ifndef ESP32S3_DEVKIT_PF_ESPIDF_H
+#define ESP32S3_DEVKIT_PF_ESPIDF_H
 
 #include "pf_ops.h"   /* `platform/port/` 由构建系统放进 include 路径（与 C3 端口一致） */
 
@@ -31,4 +31,4 @@ const pf_ops_t *pf_platform_ops(void);
 }
 #endif
 
-#endif /* PF_ESPIDF_H */
+#endif /* ESP32S3_DEVKIT_PF_ESPIDF_H */

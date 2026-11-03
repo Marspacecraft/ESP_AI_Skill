@@ -21,5 +21,6 @@ idf_component_register(
     SRCS "${EAIS_PORT_DIR}/pf_espidf.c"
     INCLUDE_DIRS "${EAIS_PORT_DIR}"
                  "${CMAKE_CURRENT_LIST_DIR}/../../../../../platform/port"
-    REQUIRES esp_timer
+    # esp_timer：clock_ms 的时钟源；driver：应用串口（pf_uart.h 的实现）。
+    REQUIRES esp_timer driver
 )

@@ -81,7 +81,7 @@ TT_CASE(bind_rejects_missing_member)
 /* host-fake 的 caps 恒 0，所以要"撒谎"必须换一个 caps 函数进来。 */
 static uint32_t caps_with_reserved_bit(void)
 {
-    return (uint32_t)(1u << 9); /* 9..31 是保留位，读 1 = 这块板在未来 */
+    return (uint32_t)(1u << 10); /* 10..31 是保留位，读 1 = 这块板在未来 */
 }
 
 TT_CASE(bind_rejects_reserved_caps)

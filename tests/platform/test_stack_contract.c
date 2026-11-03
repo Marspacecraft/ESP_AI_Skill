@@ -37,6 +37,8 @@ _Static_assert(CAP_NET == PF_CAP_NET, "能力位 5 不一致");
 _Static_assert(CAP_AUDIO_OUT == PF_CAP_AUDIO_OUT, "能力位 6 不一致");
 _Static_assert(CAP_AUDIO_IN == PF_CAP_AUDIO_IN, "能力位 7 不一致");
 _Static_assert(CAP_RTC == PF_CAP_RTC, "能力位 8 不一致");
+_Static_assert(CAP_UART == PF_CAP_UART,
+               "CAP_UART 与 PF_CAP_UART 位号不一致：App 会以为串口可用/不可用");
 
 TT_CASE(app_stack_floor_is_not_below_platform_floor)
 {

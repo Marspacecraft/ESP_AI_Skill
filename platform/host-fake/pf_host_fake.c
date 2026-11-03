@@ -40,6 +40,9 @@
 #include <string.h>
 #include <time.h>
 
+#include "platform/port/pf_cap.h"
+#include "platform/port/pf_uart.h"
+
 /* ── 内存 ──────────────────────────────────────────────────────────
  * 每块分配前面放 16 字节头（magic + 字节数），free 时校验 magic。
  * 目的是让"重复释放 / 释放别人的指针"在 host 上**当场炸**，
@@ -253,10 +256,166 @@ static void hf_task_exit_current(void)
     pthread_exit(NULL); /* 契约：不返回 */
 }
 
+/* ── 假串口（PF_CAP_UART 的参考实现） ────────────────────────────────
+ * 它不碰任何真实设备：写进去的字节进 `s_uart_tx` 记账缓冲，读出来的字节来自
+ * 测试用 `hf_uart_feed()` 塞进去的 `s_uart_rx`。这样 host 上就能验：
+ *   - "写了多少字节、内容对不对"（`hf_uart_take()`）
+ *   - "读的切片与超时行为"（`hf_uart_feed()` + `uart_read()`）
+ * 真机上这两件事只能验"没崩、返回码对"——对端有没有收到，要另一个人看。
+ */
+#define HF_UART_RX_CAP 256u
+#define HF_UART_TX_CAP 4096u
+
+static pthread_mutex_t s_uart_lock = PTHREAD_MUTEX_INITIALIZER;
+static unsigned char s_uart_rx[HF_UART_RX_CAP];
+static size_t s_uart_rx_len;
+static unsigned char s_uart_tx[HF_UART_TX_CAP];
+static size_t s_uart_tx_len;
+static int s_uart_opened;
+
+static int hf_uart_open(uint32_t port, uint32_t baud)
+{
+    int rc = -1;
+
+    if (port != 0u || baud == 0u) {
+        return -1;
+    }
+    pthread_mutex_lock(&s_uart_lock);
+    if (!s_uart_opened) {
+        s_uart_opened = 1;
+        rc = 0;
+    }
+    pthread_mutex_unlock(&s_uart_lock);
+    return rc;
+}
+
+static int hf_uart_close(uint32_t port)
+{
+    int rc = -1;
+
+    if (port != 0u) {
+        return -1;
+    }
+    pthread_mutex_lock(&s_uart_lock);
+    if (s_uart_opened) {
+        s_uart_opened = 0;
+        rc = 0;
+    }
+    pthread_mutex_unlock(&s_uart_lock);
+    return rc;
+}
+
+static int hf_uart_write(uint32_t port, const void *buf, size_t len, uint32_t timeout_ms)
+{
+    size_t room;
+    size_t n;
+
+    (void)timeout_ms;
+    if (port != 0u || buf == NULL) {
+        return -1;
+    }
+    pthread_mutex_lock(&s_uart_lock);
+    if (!s_uart_opened) {
+        pthread_mutex_unlock(&s_uart_lock);
+        return -1;
+    }
+    room = HF_UART_TX_CAP - s_uart_tx_len;
+    n = (len < room) ? len : room;
+    if (n > 0u) {
+        memcpy(&s_uart_tx[s_uart_tx_len], buf, n);
+        s_uart_tx_len += n;
+    }
+    pthread_mutex_unlock(&s_uart_lock);
+    return (int)n; /* 满了返回 0：模拟"发送缓冲满、等一会儿再来" */
+}
+
+static int hf_uart_read(uint32_t port, void *buf, size_t cap, uint32_t timeout_ms)
+{
+    size_t n;
+
+    (void)timeout_ms; /* 假串口没有"等"，有就有、没有就 0 */
+    if (port != 0u || buf == NULL || cap == 0u) {
+        return -1;
+    }
+    pthread_mutex_lock(&s_uart_lock);
+    if (!s_uart_opened) {
+        pthread_mutex_unlock(&s_uart_lock);
+        return -1;
+    }
+    n = (cap < s_uart_rx_len) ? cap : s_uart_rx_len;
+    if (n > 0u) {
+        memcpy(buf, s_uart_rx, n);
+        memmove(s_uart_rx, &s_uart_rx[n], s_uart_rx_len - n);
+        s_uart_rx_len -= n;
+    }
+    pthread_mutex_unlock(&s_uart_lock);
+    return (int)n;
+}
+
+static const pf_uart_ops_t hf_uart_ops = {
+    .version = PF_UART_OPS_VERSION,
+    .count = 1u,
+    .open = hf_uart_open,
+    .close = hf_uart_close,
+    .write = hf_uart_write,
+    .read = hf_uart_read,
+};
+
+void hf_uart_feed(const void *data, size_t len)
+{
+    size_t room;
+
+    if (data == NULL) {
+        return;
+    }
+    pthread_mutex_lock(&s_uart_lock);
+    room = HF_UART_RX_CAP - s_uart_rx_len;
+    if (len > room) {
+        len = room;
+    }
+    memcpy(&s_uart_rx[s_uart_rx_len], data, len);
+    s_uart_rx_len += len;
+    pthread_mutex_unlock(&s_uart_lock);
+}
+
+size_t hf_uart_take(void *buf, size_t cap)
+{
+    size_t n;
+
+    if (buf == NULL) {
+        return 0u;
+    }
+    pthread_mutex_lock(&s_uart_lock);
+    n = (cap < s_uart_tx_len) ? cap : s_uart_tx_len;
+    if (n > 0u) {
+        memcpy(buf, s_uart_tx, n);
+        memmove(s_uart_tx, &s_uart_tx[n], s_uart_tx_len - n);
+        s_uart_tx_len -= n;
+    }
+    pthread_mutex_unlock(&s_uart_lock);
+    return n;
+}
+
+void hf_uart_reset(void)
+{
+    pthread_mutex_lock(&s_uart_lock);
+    s_uart_opened = 0;
+    s_uart_rx_len = 0u;
+    s_uart_tx_len = 0u;
+    pthread_mutex_unlock(&s_uart_lock);
+}
+
 /* ── 能力与表 ────────────────────────────────────────────────────── */
 static uint32_t hf_caps(void)
 {
-    return 0; /* 这块"板"没有硬件；服务由测试自己注册假实现 */
+    return PF_CAP_UART; /* 这块"板"只有假串口；其他能力由测试自己往注册表里塞 */
+}
+
+void pf_platform_boot(void)
+{
+    /* 板级启动钩子：把能力实现交上去。重复注册返回 -1 是刻意的（不覆盖），
+     * 这里忽略返回值——`fw_reset()` 之后会再调一次，此刻表是空的。 */
+    (void)fw_cap_register(PF_CAP_UART, &hf_uart_ops);
 }
 
 const pf_ops_t pf_host_fake_ops = {

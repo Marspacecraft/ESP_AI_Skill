@@ -13,6 +13,8 @@
  */
 #include "tinytest.h"
 
+#include "api/af_api/cap.h"
+#include "api/af_api/uart.h"
 #include "framework/include/fw_app.h"
 #include "framework/include/fw_embed.h"
 #include "framework/src/fw_internal.h"
@@ -462,6 +464,142 @@ TT_CASE(busy_loop_is_detected_but_cancel_does_not_stop_it)
 /* 固件里只允许有一个 `main`（本工程是 ESP-IDF 的 `app_main` 入口，`main` 这个
  * 符号留给套件）。两个套件都要各自的入口名，所以按"是不是在 IDF 里"选择：
  * 设备侧叫 `app_behavior_main`，host 侧仍是 `main`。 */
+/* ------------------------------------------------------------------ */
+/* 串口能力（第一项真实能力的真机证据）                                  */
+/* ------------------------------------------------------------------ */
+
+/* 板上能验的只有三件事，别的都是自欺：
+ *   1. 板子真的把实现交上来了（`cap_available(CAP_UART)` 为真）；
+ *   2. 写出去不崩、字节数如实返回；
+ *   3. **没有对端时读会如实超时**，而不是假装读到 0 字节成功。
+ * "对端收到了吗"要另一头的人看串口助手——那一条不属于本套件。
+ *
+ * 所有串口操作都发生在 App 的 `init()` 里：`uart_write()`/`uart_read()` 要求
+ * App 上下文（伪阻塞要靠取消位），而 `uart_open()` 必须在板级钩子跑过之后——
+ * 那个钩子在 `fw_embed_start()` 里，所以顺序只能是"先启动、再在 App 里操作"。 */
+static int g_uart_scenario;
+static cm_err_t g_uart_rc;      /* 写/读的结果 */
+static cm_err_t g_uart_open_rc;
+static cm_err_t g_uart_close_rc;
+static cm_err_t g_uart_double_rc;
+static size_t g_uart_n;
+static char g_uart_buf[16];
+static int g_uart_done;
+
+static cm_err_t uart_init(app_ctx_t *ctx)
+{
+    (void)ctx;
+    g_uart_rc = CM_OK;
+    g_uart_open_rc = CM_OK;
+    g_uart_close_rc = CM_OK;
+    g_uart_double_rc = CM_OK;
+    g_uart_n = 0u;
+
+    switch (g_uart_scenario) {
+    case 1: /* 开 → 写 4 字节 → 关 */
+        g_uart_open_rc = uart_open(UART_PORT_APP, 115200u);
+        if (g_uart_open_rc == CM_OK) {
+            g_uart_rc = uart_write(UART_PORT_APP, "ping", 4u, &g_uart_n);
+            g_uart_close_rc = uart_close(UART_PORT_APP);
+        }
+        break;
+    case 2: /* 开 → 没接线时读 50ms → 关 */
+        g_uart_open_rc = uart_open(UART_PORT_APP, 115200u);
+        if (g_uart_open_rc == CM_OK) {
+            g_uart_rc = uart_read(UART_PORT_APP, g_uart_buf, sizeof g_uart_buf, &g_uart_n, 50u);
+            g_uart_close_rc = uart_close(UART_PORT_APP);
+        }
+        break;
+    case 3: /* 重复打开必须 BUSY，两次关闭第二次必须 STATE */
+        g_uart_open_rc = uart_open(UART_PORT_APP, 115200u);
+        g_uart_double_rc = uart_open(UART_PORT_APP, 115200u);
+        g_uart_rc = uart_close(UART_PORT_APP);
+        g_uart_close_rc = uart_close(UART_PORT_APP);
+        break;
+    default:
+        break;
+    }
+    __atomic_store_n(&g_uart_done, 1, __ATOMIC_RELEASE);
+    return CM_OK;
+}
+
+static const app_desc_t uart_desc = {
+    .id = 21u,
+    .name = "uart-probe",
+    .init = uart_init,
+    .exit = ok_exit,
+    .task = ok_task,
+    .flags = APP_FLAG_SYSTEM, /* 清单里的 App 要由 fw_boot() 拉起来，得带这个标志 */
+    .stack_bytes = APP_STACK_MIN,
+};
+
+static void uart_case_reset(void)
+{
+    reset_all();
+    g_uart_scenario = 0;
+    __atomic_store_n(&g_uart_done, 0, __ATOMIC_RELEASE);
+}
+
+TT_CASE(uart_is_published_by_the_board)
+{
+    fw_manifest_t m;
+
+    uart_case_reset();
+    m = manifest_of(&uart_desc);
+    TT_ASSERT_INT(CM_OK, fw_embed_start(&m));
+    TT_ASSERT_TRUE(cap_available(CAP_UART));
+    TT_ASSERT_INT(1u, uart_port_count());
+    uart_case_reset();
+}
+
+TT_CASE(uart_open_write_close_round_trip)
+{
+    fw_manifest_t m;
+
+    uart_case_reset();
+    m = manifest_of(&uart_desc);
+    g_uart_scenario = 1;
+    TT_ASSERT_INT(CM_OK, fw_embed_start(&m));
+    TT_ASSERT_TRUE(wait_until_truthy(&g_uart_done, 1, 2000u));
+    TT_ASSERT_INT(CM_OK, g_uart_open_rc);
+    TT_ASSERT_INT(CM_OK, g_uart_rc);
+    TT_ASSERT_INT(4, (int)g_uart_n);
+    TT_ASSERT_INT(CM_OK, g_uart_close_rc);
+    uart_case_reset();
+}
+
+TT_CASE(uart_read_times_out_with_nothing_wired)
+{
+    fw_manifest_t m;
+
+    uart_case_reset();
+    m = manifest_of(&uart_desc);
+    g_uart_scenario = 2;
+    TT_ASSERT_INT(CM_OK, fw_embed_start(&m));
+    TT_ASSERT_TRUE(wait_until_truthy(&g_uart_done, 1, 3000u));
+    TT_ASSERT_INT(CM_OK, g_uart_open_rc);
+    TT_ASSERT_INT(CM_ERR_TIMEOUT, g_uart_rc); /* 没接对端：如实说"没等到"，不是 0 字节成功 */
+    TT_ASSERT_INT(0, (int)g_uart_n);
+    TT_ASSERT_INT(CM_OK, g_uart_close_rc);
+    uart_case_reset();
+}
+
+TT_CASE(uart_double_open_is_busy_and_close_is_paired)
+{
+    fw_manifest_t m;
+
+    uart_case_reset();
+    m = manifest_of(&uart_desc);
+    g_uart_scenario = 3;
+    TT_ASSERT_INT(CM_OK, fw_embed_start(&m));
+    TT_ASSERT_TRUE(wait_until_truthy(&g_uart_done, 1, 2000u));
+    TT_ASSERT_INT(CM_OK, g_uart_open_rc);
+    TT_ASSERT_INT(CM_ERR_BUSY, g_uart_double_rc);
+    TT_ASSERT_INT(CM_OK, g_uart_rc);        /* 第一次关闭成功 */
+    TT_ASSERT_INT(CM_ERR_STATE, g_uart_close_rc); /* 第二次没有可关的 */
+    uart_case_reset();
+}
+
 #if defined(ESP_PLATFORM)
 int app_behavior_main(void)
 #else
@@ -478,5 +616,9 @@ int main(void)
     TT_RUN(same_key_overwrites_and_notifies_the_old_frame);
     TT_RUN(submit_table_full_is_busy_not_nomem);
     TT_RUN(busy_loop_is_detected_but_cancel_does_not_stop_it);
+    TT_RUN(uart_is_published_by_the_board);
+    TT_RUN(uart_open_write_close_round_trip);
+    TT_RUN(uart_read_times_out_with_nothing_wired);
+    TT_RUN(uart_double_open_is_busy_and_close_is_paired);
     return tt_summary();
 }

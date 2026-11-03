@@ -11,7 +11,7 @@
 |---|---|---|---|---|
 | A1 | **App 的编译单元里不存在平台表**：App 能 link 的每个头，其依赖闭包都落在 App 自己的 `link` 集合内 | `python3 tools/check_link.py` | PASS（5 个 tag / 18 个对外头） | host |
 | A2 | **整机只有一个入口**：全仓除 `framework/src/fw_main.c` 外没有第二处 `app_main` | `tests/tools/check_entry_unique.sh` | PASS | host |
-| A3 | **清单即授权**：没写进清单的 App 编译好了也不会启动；重复 id 整机不启动 | `./build.sh run`（`test_fw_registry` / `test_demo_lifecycle`） | 168 条全绿 | host |
+| A3 | **清单即授权**：没写进清单的 App 编译好了也不会启动；重复 id 整机不启动 | `./build.sh run`（`test_fw_registry` / `test_demo_lifecycle`） | 179 条全绿 | host |
 | A4 | **停止是可完成的**：取消位在片边界被响应（切片 ≤20ms），`exit()` 恰好一次，`fw_delay_block()` 之后的代码不执行 | `./build.sh run`（`test_fw_delay` 7 条）+ 真机 `test_app_behavior` | 全绿；真机 `cancel_stops_the_task_and_calls_exit_exactly_once` / `long_delay_is_cut_into_slices` PASS | host + 真机 |
 | A5 | **退出路径按生命周期回收**：`RES_LIFE_APP` 槽位被回收、`RES_LIFE_BOOT` 留着 | `./build.sh run`（`test_res`）+ 真机 `test_res_on_device` 8 条 | 全绿；真机验到 `RES_LIFE_APP` 退出回收 2 个槽位、`RES_LIFE_BOOT` 存活、`CM_ERR_QUOTA` 与 `NOMEM` 不混、`fw_res_revoke` 把上限压到当前用量且不杀任务 | host + 真机 |
 | A6 | **越权在合并前就红**：以某个 tag 的身份写别人的路径必须被拒 | `python3 tools/check_workspace_policy.py --as 2 framework/src/fw_app.c`（期望 `DENY`、退出码 1） | 可执行 | host |

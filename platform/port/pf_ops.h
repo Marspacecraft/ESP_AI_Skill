@@ -41,7 +41,9 @@ typedef struct pf_task pf_task_t;
 /* ── 能力位 ────────────────────────────────────────────────────────
  * caps() 返回的位图。**查得到硬件 ≠ 有接口可调**：
  *   PF_CAP_DISPLAY 可以是 1，而 api/af_api/disp.h 根本不存在（v1 不含屏幕）。
- * 位 9–31 保留：必须读 0。框架看到保留位非 0 会判平台违约。
+ * 位 10–31 保留：必须读 0。框架看到保留位非 0 会判平台违约。
+ * 位 0–9 已定：0 显示 / 1 局部刷新 / 2 触摸 / 3 按键 / 4 存储 / 5 网络 /
+ *             6 放音 / 7 录音 / 8 RTC / 9 串口。
  * 返回 0 完全合法——一块什么都没有的板子也能跑框架与不依赖硬件的 App。 */
 #define PF_CAP_DISPLAY         (1u << 0)  /* 有屏 */
 #define PF_CAP_DISPLAY_PARTIAL (1u << 1)  /* 屏支持局部刷新 */
@@ -52,7 +54,8 @@ typedef struct pf_task pf_task_t;
 #define PF_CAP_AUDIO_OUT       (1u << 6)  /* 放音 */
 #define PF_CAP_AUDIO_IN        (1u << 7)  /* 录音 */
 #define PF_CAP_RTC             (1u << 8)  /* 实时时钟 */
-#define PF_CAP_RESERVED_MASK   0xFFFFFE00u /* 位 9–31，必须为 0 */
+#define PF_CAP_UART            (1u << 9)  /* 至少一路可用的应用串口（见 pf_uart.h） */
+#define PF_CAP_RESERVED_MASK   0xFFFFFC00u /* 位 10–31，必须为 0 */
 
 /* ── 任务描述体 ────────────────────────────────────────────────────
  * 只有四件事。**没有优先级**：框架不设优先级分带，平台的调度策略由平台自己定，
@@ -197,6 +200,21 @@ const pf_ops_t *pf_platform_ops(void);
  *                   超出可截断，不得崩溃。
  */
 void pf_platform_log(const char *line);
+
+/** 板级启动钩子。**由平台实现**，框架在 `fw_startup()` 里、`fw_init()` 之前调一次。
+ *
+ * 它存在的**唯一理由**：能力实现（`pf_uart_ops_t` 之类）必须在框架开始启动 App
+ * 之前就注册进注册表（`fw_cap_register()`），否则第一个 App 起来时
+ * `cap_available()` 会回答"没有"，而硬件明明在。没有这个钩子，板子无处落这行注册。
+ *
+ * @return 无。失败含义：注册失败的位就是"没有这个能力"，
+ *         `fw_init()` 之后 `cap_available()` 会如实回答 false。
+ *         线程与中断：只在启动阶段调用一次（`fw_init()` 之前，任务还没起）；
+ *                     实现里可以不加锁。
+ *         注意事项：**实现必须幂等**——框架保证只调一次，但重复 open 同一路硬件
+ *                   应当返回 -1 而不是静默成功；本函数里不要调用任何 `fw_*` 之外的
+ *                   会阻塞的等待（App 任务还没起来）。 */
+void pf_platform_boot(void);
 
 #ifdef __cplusplus
 }

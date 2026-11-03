@@ -34,8 +34,23 @@
 数**向上取整到至少 1**（100 Hz 下 1~9 ms 会截成 0 → 忙等）、互斥非递归、
 `task_create` 收字节数、`task_exit_current` 不返回。
 
-`caps()` 返回 0：板上有 Wi-Fi/BLE/PSRAM，但本仓库**还没有任何能力头**，
+`caps()` 只返回 `PF_CAP_UART`：板上有 Wi-Fi/BLE/PSRAM，但本仓库**还没有那些能力头**，
 按 architecture §7.3 的裁决，没有可调接口就不许点亮能力位。
+
+## 能力面：串口（第一项真实能力，D58）
+
+`pf_platform_boot()` 在 `fw_init()` 之前被框架调一次，注册串口 vtable；`esp_port_caps()`
+同时点亮 `PF_CAP_UART`（位 9）。
+
+| 项 | 值 |
+|---|---|
+| 控制器 | `UART_NUM_1`（UART0 是控制台/烧录口） |
+| TX | **GPIO17**（板级宏 `APP_UART_TX_GPIO`） |
+| RX | **GPIO18**（板级宏 `APP_UART_RX_GPIO`） |
+
+**这条能力在 S3 上先红过**：`uart_config_t` 忘了清零 → `E uart: uart_param_config(995):
+rx flow thresh error`（`rx_flow_ctrl_thresh` 是栈垃圾）。C3 同一份代码一路绿——
+两块板都要烧，才能说"这个文件是对的"。
 
 ## 为什么不进 host 构建
 

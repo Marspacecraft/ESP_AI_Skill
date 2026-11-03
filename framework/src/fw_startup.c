@@ -26,6 +26,12 @@ cm_err_t fw_startup(const pf_ops_t *ops, const fw_manifest_t *man)
     if (err != CM_OK) {
         return err;
     }
+
+    /* 板子在这里注册能力实现（`fw_cap_register`）。放在 bind 之后、init 之前：
+     * 之后框架已经能回答 `cap_available()`，而第一个 App 还没起来——
+     * 反过来（init 之后）就有"App 已经看到能力不存在"的窗口。 */
+    pf_platform_boot();
+
     err = fw_init(man, 1u);
     if (err != CM_OK) {
         return err;

@@ -4,36 +4,43 @@
 让越权、误用 RTOS 原语、在阻塞点后面写清理这类错误**编译不过或测试变红**，
 而不是靠评审记着。
 
-**现在不是什么**：不是"ESP32 全系通用框架"的完成态。v1 只有九项基础设施
-（内存 / 时钟 / 睡眠 / 互斥 / 建任务 / 退任务 + 表版本 + 能力位 + 日志钩子），
-**没有显示屏、输入、音频、网络、存储、电源的能力头**——`api/af_api/` 里只有
-`app.h`（生命周期 + 使用面）、`res.h`（资源/配额）、`evt.h`（事件）、`svc.h`（服务）。
+**现在不是什么**：不是"ESP32 全系通用框架"的完成态。v1 的九项基础设施是
+内存 / 时钟 / 睡眠 / 互斥 / 建任务 / 退任务 + 表版本 + 能力位 + 日志钩子。
+
+`api/af_api/` 现在有**六个头**：
+`app.h`（生命周期 + 使用面）、`res.h`（资源/配额）、`evt.h`（事件）、`svc.h`（服务）、
+`cap.h`（能力查询）、`uart.h`（串口）；外加 `mgr.h` 是**控制面**（只有管理器要 include）。
+
+**真正做出来的设备能力只有串口一项**。显示屏、输入、音频、网络、存储、电源都**没有能力头**——
 看到文档提到 `disp_commit` 之类，那是设计稿，不是可调用的东西。
+加一项能力的完整路径见 `skills/role-api/SKILL.md` §4（四件套：平台 vtable → 板子注册 →
+App 门面 → 框架切片实现）。
 
 ---
 
 ## 1. 三十秒上手
 
 ```bash
-./build.sh run     # 唯一构建入口：编译全部用例 + 跑四道门禁 + 跑全部 host 测试
+./build.sh run     # 唯一构建入口：编译全部用例 + 跑五道门禁 + 跑全部 host 测试
 ```
 
-当前基线：**159 条 host 用例全绿** + `check_entry_unique` / `link 面` / `纯 C 边界` / `能力目录` 四道门禁 PASS。
-真机：两块板（ESP32-C3 `ai-passport`、ESP32-S3 devkit）各跑同一份 **37 条**用例，`DEVICE_DONE rc=0`。
+当前基线：**179 条 host 用例全绿** + `check_entry_unique` / `link 面` / `纯 C 边界` / `能力目录` / `服务号` 五道门禁 PASS。
+真机：两块板（ESP32-C3 `ai-passport`、ESP32-S3 devkit）各跑同一份 **41 条**用例，`DEVICE_DONE rc=0`。
 
 | 想知道 | 去哪 |
 |---|---|
 | **项目总览（是什么、为什么、现在到哪）** | [`README.md`](README.md)（10 节：三个赌注、六条机制、有什么/没什么、术语、已知边界） |
-| **构建框架怎么搭的、命令怎么用** | [`docs/build-and-usage.md`](docs/build-and-usage.md)（详细版：`build.sh` 行为、四道门禁、写 App、接板、真机流程、失败速查） |
+| **构建框架怎么搭的、命令怎么用** | [`docs/build-and-usage.md`](docs/build-and-usage.md)（详细版：`build.sh` 行为、五道门禁、写 App、接板、真机流程、失败速查） |
 | 一个 App 最短能多短 | `apps/demo/app_demo.c`（82 行，含注释） |
-| App 能调什么 | `api/af_api/app.h`（生命周期 + 使用面）、`res.h`、`evt.h`、`svc.h` |
+| App 能调什么 | `api/af_api/app.h`（生命周期 + 使用面）、`res.h`、`evt.h`、`svc.h`、`cap.h`、`uart.h`；管理器另加 `mgr.h`（控制面） |
 | 板子要实现什么 | `platform/port/pf_ops.h`（九项，每项一段注释，**这是接板唯一必读**） |
 | 契约为什么这么定 | `docs/pf-ops-decision.md` |
+| **写代码要守什么**（命名/注释/内存/并发） | [`docs/coding-style.md`](docs/coding-style.md)（含 §13「现状与本文不符」，别顺手改） |
 | 错误码谁产出 | `docs/error-codes.md` |
 | 验收线怎么算过 | `docs/acceptance.md`（A1–A8） |
 | 哪个能力位对应哪个头 | `docs/generated/catalog.md`（与 `pf_ops.h` 双向绑定，门禁会红） |
 | 产品仓库怎么把本仓库引进去 | `docs/cross-repo.md` |
-| 决策与施工记录 | `实施步骤.md`（§7 决策 D1–D55，§8 推进记录） |
+| 决策与施工记录 | `实施步骤.md`（§7 决策 D1–D59，§8 推进记录） |
 
 ---
 

@@ -13,7 +13,7 @@
   C. 目录 → 文件：目录"接口头"一列如果不是 `—`，那个文件必须真的存在。
   D. 头 → 目录：`api/af_api/` 下除基础设施头以外，每个头都必须在目录里被登记。
 
-位 9–31 保留（`PF_CAP_RESERVED_MASK`），任何 `PF_CAP_*` 落到这些位上都是错误。
+位 10–31 保留（`PF_CAP_RESERVED_MASK`），任何 `PF_CAP_*` 落到这些位上都是错误。
 
 退出码：0 通过 / 1 有问题 / 2 环境或用法问题（2 不是通过）。
 """
@@ -39,7 +39,7 @@ NONCAP_HEADERS = {
     "cap.h",   # 能力查询门面：回答"这块板有没有"，它自己不提供任何能力
 }
 
-RESERVED_FIRST_BIT = 9
+RESERVED_FIRST_BIT = 10  # 位 9 从 D58 起归 UART；保留区是 10..31
 DASHES = {"—", "-", "--", ""}
 
 
@@ -95,7 +95,7 @@ def check(root: Path) -> list[str]:
             problems.append(f"目录里 `PF_CAP_{name}` 出现了两次（位 {by_name[name]} 与 {r['bit']}）")
         by_name[name] = int(r["bit"])  # type: ignore[arg-type]
         if int(r["bit"]) >= RESERVED_FIRST_BIT:  # type: ignore[arg-type]
-            problems.append(f"目录里 `PF_CAP_{name}` 占用保留位 {r['bit']}（9–31 必须为 0）")
+            problems.append(f"目录里 `PF_CAP_{name}` 占用保留位 {r['bit']}（10–31 必须为 0）")
 
     # A. 宏 → 目录
     for name, bit in sorted(macros.items(), key=lambda kv: kv[1]):

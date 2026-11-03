@@ -66,12 +66,29 @@ python3 tools/check_workspace_policy.py --as 5 framework/src/fw_ctx.c
 
 ## 4. 加一个东西的固定顺序
 
-**加能力位**（例如存储）：
+**加一项能力**（串口是唯一做过的样本，照它抄）：
 
-1. `platform/port/pf_ops.h` 加 `PF_CAP_STORAGE (1u << 4)`（位号不能改，保留位 9–31 必须为 0）。
-2. `docs/generated/catalog.md` 加一行。
-3. 有能力头才填"接口头"列；**没有就留空**——"查得到硬件 ≠ 有东西可调"。
-4. `./build.sh run`：`check_caps.py` 四条判据必须绿。
+0. 先分清两件事：**能力位**（`caps()` 里"这块板有这个硬件"）与**能力实现**（平台交上来的
+   vtable）。两者缺一不可——只有位没有实现，App 一调就是空指针；只有实现没有位，
+   板子在报假能力。`cap_available(bit)` 判的就是"位 ∧ 已注册"（D57）。
+
+1. `platform/port/pf_<cap>.h`：平台的 vtable，带 `version`/`count`，返回**字节数或 -1**，
+   **不返回 `cm_err_t`**（平台层不产出错误码，翻译是框架的事）。规则写进头注释：
+   逻辑编号（换板不改 App）、`timeout_ms` 是上界、只能任务上下文。
+2. `platform/port/pf_ops.h`：加 `PF_CAP_<CAP> (1u << n)`，**同时收窄 `PF_CAP_RESERVED_MASK`**
+   （串口把位 9 从保留区划走，掩码 `0xFFFFFE00` → `0xFFFFFC00`）。
+3. `platform/port/pf_cap.h` 的 `PF_CAP_COUNT` +1，`framework/src/fw_cap_reg.c` 的 `bit_index()`
+   加 `case`——**漏一处就是注册失败**，表现是 `uart_port_count()==0` 这种静默假象。
+4. `api/af_api/<cap>.h`：App 门面，纯 `cm_err_t`；读超时用 `CM_ERR_TIMEOUT` 表示"还没有"，
+   不是错误。四段注释写全。
+5. `framework/src/fw_<cap>.c`：切片 + 每片前 `fw_cancel_point()` + 记账；
+   `fw_reset()` 里要调 `fw_<cap>_forget()`。
+6. 板子在 `pf_platform_boot()` 里 `fw_cap_register(PF_CAP_<CAP>, &ops)`——这个钩子在
+   `fw_startup()` 里于 `bind()` 之后、`fw_init()` 之前调一次，**没有别的时机**。
+7. `docs/generated/catalog.md` 加一行（bit / 名字 / 宏 / 接口头 / 说明）；接口头写了就**必须真存在**。
+8. `tests/port/test_stack_contract.c` 加 `_Static_assert(CAP_X == PF_CAP_X)`——App 读不到
+   `pf_ops.h`，`cap.h` 只是复述位号，漂了不会报错，只能编译期钉。
+9. `./build.sh run`：`check_caps.py` 四条判据 + `link 面` 必须绿；再用红证证明判据真的会红。
 
 **加一个公开函数**：
 
@@ -102,7 +119,7 @@ python3 tools/check_workspace_policy.py --as 5 framework/src/fw_ctx.c
 ## 6. 交付前自查
 
 ```bash
-./build.sh run            # 四道门禁：entry_unique → link → purity → caps，全绿
+./build.sh run            # 五道门禁：entry_unique → link → purity → caps → svc-ids，全绿
 ```
 
 - 四行交付里 `Unverified` 要写清"契约有没有被真实调用方验过"——只有测试在调，就没有。

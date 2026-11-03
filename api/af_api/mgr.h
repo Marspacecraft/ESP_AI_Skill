@@ -1,4 +1,5 @@
-#pragma once
+#ifndef ESP_AI_SKILL_AF_API_MGR_H
+#define ESP_AI_SKILL_AF_API_MGR_H
 /* api/af_api/mgr.h —— 管理器面（控制面）
  *
  * 什么时候用这个头：**你要拉起、观察、停下来、回收别的 App**。这是"管理器"
@@ -166,3 +167,5 @@ const app_desc_t *fw_app_at(uint32_t index);
 #ifdef __cplusplus
 }
 #endif
+
+#endif /* ESP_AI_SKILL_AF_API_MGR_H */

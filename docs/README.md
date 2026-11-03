@@ -4,7 +4,7 @@
 [`README.md`](../README.md)——第一次接触先读那一份，本目录是往下钻时的对照表。
 
 本目录只放**读者需要照着做或对照判断**的文档。施工过程与决策记录不在这里，在仓库根的
-[`实施步骤.md`](../实施步骤.md)（§4 步骤、§7 决策 D1–D55、§8 推进记录）。
+[`实施步骤.md`](../实施步骤.md)（§4 步骤、§7 决策 D1–D59、§8 推进记录）。
 
 | 文件 | 回答什么问题 |
 |---|---|
@@ -12,8 +12,9 @@
 | [`error-codes.md`](error-codes.md) | 每个 `cm_err_t` 谁产出、什么情况下、调用方该做什么；`CANCELED` 为什么是预留值 |
 | [`acceptance.md`](acceptance.md) | A1–A8 八条验收线：命令是什么、现在跑出什么、哪几条只能人审 |
 | [`build-and-usage.md`](build-and-usage.md) | **构建框架与使用说明（详细版）**：`build.sh` 到底做了什么、五道门禁各判什么、怎么写 App、怎么接板、怎么跑真机、红了怎么看 |
+| [`coding-style.md`](coding-style.md) | **写代码时必须一致的约定**：命名（层前缀 vs 能力名）、类型与文件、排版、内存与内联、并发与平台两条硬规则、注释四段、§13 现状偏差清单 |
 
-## 四份公开契约（`api/af_api/`）
+## 公开契约（`api/af_api/`，六个使用面头 + 一个控制面头）
 
 | 头 | 管什么 |
 |---|---|
@@ -21,6 +22,9 @@
 | `res.h` | 资源槽位（`res_acquire`）与配额（`fw_res_set_quota`） |
 | `evt.h` | 事件（`fw_event_post`/`wait`/`take`） |
 | `svc.h` | 服务注册表（`fw_svc_register`/`ready`）与提交型接口（`fw_svc_submit`） |
+| `cap.h` | 能力查询（`cap_available`）与能力位（`CAP_UART`） |
+| `uart.h` | 串口（`uart_open`/`write`/`read`/`close`），目前唯一的设备能力 |
+| `mgr.h` | **控制面**：管理器拉起/观察/停下/回收别的 App（普通 App 不需要） |
 
 `framework/include/fw_app.h` 只是把 `app.h` 带进来的转发头（D44）。
 

@@ -50,7 +50,7 @@ platform/   平台适配：九项基础设施 + 能力位
 ├── build.sh              # 唯一构建入口（nobody：只有人能改）
 ├── policy.txt            # 写权/链接权的唯一来源（nobody）
 ├── AGENTS.md             # AI 入口（nobody）
-├── 实施步骤.md            # 施工计划 + 决策 D1–D55 + 推进记录（nobody）
+├── 实施步骤.md            # 施工计划 + 决策 D1–D59 + 推进记录（nobody）
 │
 ├── api/af_api/           # App 的门面：app.h res.h evt.h svc.h     [tag 5 写]
 ├── common/               # cm_types.h/.c：cm_err_t、错误码；cm_atomic.h：原子访问  [tag 5 写]
@@ -142,7 +142,7 @@ CC="cc -fsanitize=address -fno-omit-frame-pointer -g" ./build.sh run
 CC="cc -fsanitize=thread -g" ./build.sh run
 ```
 
-两条都应当是 **0 报告 + 159 条全绿**。TSan 会把整轮拉长到十几秒——里面有一个
+两条都应当是 **0 报告 + 179 条全绿**。TSan 会把整轮拉长到十几秒——里面有一个
 "纯死循环"样本，那是故意留的，见 `tests/framework/test_heartbeat.c`。
 
 ### 3.4 红了怎么看
@@ -354,27 +354,47 @@ fw_app_ctx_free(c);                        /* 任务结束了才许释放 */
 另有两个表外钩子：`pf_platform_ops()`（返回本板表）与 `pf_platform_log(const char*)`
 （日志不占用了表，否则加一列就要所有板重签）。
 
-### 7.1.1 有额外硬件的板：把实现**交上去**（机制已就位，具体能力逐个定）
+### 7.1.1 有额外硬件的板：把实现**交上去**（已有一项真实能力：串口）
 
 `pf_ops_t` 只收"系统跑起来必需的机制"（内存、时钟、睡眠、锁、任务）。显示、存储、
-网络、音频这类能力**不进那张表**——判据是"去掉它，框架还能不能跑"。它们走另一条缝：
+网络、音频、串口这类能力**不进那张表**——判据是"去掉它，框架还能不能跑"。
+它们走另一条缝：**板子在 `pf_platform_boot()` 里把 vtable 注册给框架**。
 
 ```c
+/* platform/<板>/pf_espidf.c —— 唯一需要在板级文件里做的事 */
 #include "platform/port/pf_cap.h"
+#include "platform/port/pf_uart.h"
 
-/* boot 里、fw_init() 之前，每位注册一次；不实现就不写这行 */
-fw_cap_register(PF_CAP_XXX, &my_xxx_ops);   /* 具体哪一项、表长什么样，逐个能力定 */
+static const pf_uart_ops_t s_uart_ops = { PF_UART_OPS_VERSION, 1u, app_uart_open, ... };
+
+/* 由 fw_startup() 调用：bind() 之后、fw_init() 之前，只会调一次，必须幂等 */
+void pf_platform_boot(void) { (void)fw_cap_register(PF_CAP_UART, &s_uart_ops); }
 ```
 
-> 目前**还没有任何一项能力定案**：注册表与缝已经就位并通过用例，第一个真实能力等
-> 需求明确后再加。屏幕（墨水屏/液晶屏）影响体验最大、两类的刷新语义差得远，
-> 明确留到后面单独定方案。
-
 - 没注册的位：`cap_available()` 回答 false，相关调用返回 `CM_ERR_NOT_SUPPORTED`；
+- `cap_available()` 是"硬件报了 **且** 软件注册了"——只有其一都算不可调（D57）；
 - **不需要弱符号、不需要空实现、不需要 `#if`**：板子没有这个能力，就一个符号都不用提供；
 - 注册的指针**活到关机**（框架只存指针，不拷贝、不释放）；重复注册返回 -1。
 
-`cap_available()` 因此是"硬件报了 **且** 软件注册了"——只有其一都算不可调。
+**加一项能力要动四处（D58，串口是先例）：**
+
+| 位置 | 写什么 |
+|---|---|
+| `platform/port/pf_<cap>.h` | 平台的 vtable：`version` / `count` / 各函数。**返回字节数或 0/-1，不返回 `cm_err_t`**（平台层不产出错误码，D33） |
+| `platform/<板>/pf_espidf.c` | 实现 vtable + 在 `pf_platform_boot()` 里注册；`caps()` 点亮对应位 |
+| `api/af_api/<cap>.h` | App 门面：纯 `cm_err_t` + 四段注释；位号用 `CAP_<CAP>` |
+| `framework/src/fw_<cap>.c` | 翻译与纪律：先 `cap_available()`、切片阻塞点调 `fw_cancel_point()`、记账、`fw_reset()` 里 `fw_<cap>_forget()` |
+
+配套还要：`platform/port/pf_ops.h` 的 `PF_CAP_<CAP>` 与 `PF_CAP_RESERVED_MASK`（位从保留区划走时两者一起改）、
+`api/af_api/cap.h` 的 `CAP_<CAP>`、`tests/platform/test_stack_contract.c` 的 `_Static_assert`、
+`docs/generated/catalog.md` 一行（门禁双向绑定）、`tools/check_caps.py` 的 `RESERVED_FIRST_BIT`。
+
+**串口这条链的现状**：`uart_open/close/write/read` + `uart_port_count()` 已可用；
+host 用 `platform/host-fake` 的假串口（`hf_uart_feed/take/reset` 是测试钩子），
+两块真板用 `UART_NUM_1`（C3 `TX=GPIO21/RX=GPIO20`，S3 `TX=GPIO17/RX=GPIO18`，引脚是板级宏）。
+**未验**：对端到底收到没有——要另一头接串口助手看，这是套件的能力边界。
+
+> 屏幕（墨水屏/液晶屏）影响体验最大、两类刷新语义差得远，仍然**留到后面单独定方案**。
 
 ### 7.2 三个最容易写错的地方（都踩过）
 
@@ -480,7 +500,7 @@ Unverified:   还有什么没验证、为什么
 | A1–A8 验收线怎么算过 | [`acceptance.md`](acceptance.md) |
 | 能力位 ↔ 接口头的映射 | [`generated/catalog.md`](generated/catalog.md) |
 | 产品仓库怎么把本仓库当组件引进去 | [`cross-repo.md`](cross-repo.md) |
-| 决策与施工记录（D1–D55） | [`../实施步骤.md`](../实施步骤.md) |
+| 决策与施工记录（D1–D59） | [`../实施步骤.md`](../实施步骤.md) |
 
 ---
 
@@ -488,9 +508,9 @@ Unverified:   还有什么没验证、为什么
 
 | 项 | 数字 |
 |---|---|
-| host 用例 | **159 条**，22 个二进制，`./build.sh run` rc=0 |
+| host 用例 | **179 条**，24 个二进制，`./build.sh run` rc=0 |
 | 门禁 | 4 道全 PASS（入口唯一 / link 面 5 tag·14 头 / 纯 C 边界 4 目录 / 能力目录 9 位） |
-| 真机 | ESP32-C3 与 ESP32-S3 各 **37 条**（14 端口 + 9 行为 + 6 事件 + 8 资源），`DEVICE_DONE rc=0` |
+| 真机 | ESP32-C3 与 ESP32-S3 各 **41 条**（14 端口 + 13 行为 + 6 事件 + 8 资源），`DEVICE_DONE rc=0` |
 | sanitizer | ASan 0 报告、TSan 0 报告 |
 | 端口 | `platform/port/pf_ops.h` 九项 + `caps()` + `version` |
 | App 门面 | `api/af_api/{app,res,evt,svc}.h`（**没有**显示/输入/音频/存储/网络/电源的能力头） |

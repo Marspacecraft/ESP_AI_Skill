@@ -5,8 +5,8 @@
  * 这是"第二块板"的参考实现：它只依赖 `platform/port/pf_ops.h`，不 include
  * 框架与 App 的任何东西——接板的人只需要读 pf_ops.h 和一个这样的目录。
  */
-#ifndef PF_ESPIDF_H
-#define PF_ESPIDF_H
+#ifndef AI_PASSPORT_C3_PF_ESPIDF_H
+#define AI_PASSPORT_C3_PF_ESPIDF_H
 
 #include "pf_ops.h"
 
@@ -31,4 +31,4 @@ const pf_ops_t *pf_platform_ops(void);
 }
 #endif
 
-#endif /* PF_ESPIDF_H */
+#endif /* AI_PASSPORT_C3_PF_ESPIDF_H */

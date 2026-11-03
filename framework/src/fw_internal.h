@@ -261,6 +261,9 @@ void fw_event_forget(void);
 /** 清空活实例表。**只给 `fw_reset()` 用**。 */
 void fw_boot_forget(void);
 
+/** 清掉串口打开记账（只给 `fw_reset()`）。 */
+void fw_uart_forget(void);
+
 /* ── App 运行期上下文与伪阻塞 ──────────────────────────────────── */
 
 /** 伪阻塞的单片长度上限（毫秒）。架构约束是"单段不可打断等待 < 200ms"，
@@ -343,6 +346,17 @@ const void *fw_cap_ops(uint32_t bit);
 void fw_cap_forget(void);
 
 struct fw_app_ctx *fw_current_ctx(void);
+
+/** 片间取消点：当前 App 收到取消位且不在退出中，就地走退出路径（**不返回**）。
+ *
+ * @return 无（正常情况下会返回；命中取消时经 `fw_run_exit()` 结束任务、不返回）。
+ *         线程与中断：**只能从 App 任务里调**；其他上下文里 `fw_current_ctx()` 为 NULL，
+ *                     本函数直接返回。ISR 里禁止。
+ *         注意事项：`fw_delay_block()` 的切片内部已经调它；能力实现里**自己排的循环**
+ *                   （例如 `uart_write()` 的分片发送）必须显式调，否则取消要等到
+ *                   下一次延时才被响应。
+ */
+void fw_cancel_point(void);
 
 /** 喂一次心跳。**只给框架内部的"让出点"调**（`fw_delay_block`、`fw_event_wait`、
  *  `fw_svc_submit`）——App 不直接调它，因为"能自己报平安"的心跳证明不了任何事。

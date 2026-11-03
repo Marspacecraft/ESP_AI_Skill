@@ -69,7 +69,7 @@ python3 tools/check_workspace_policy.py --as 3 apps/demo/app_demo.c
 ## 5. 改完必须跑的三件事
 
 ```bash
-./build.sh run                                          # 159 条 + 四道门禁
+./build.sh run                                          # 179 条 + 五道门禁
 CC="cc -fsanitize=thread -g" ./build.sh run             # 竞争（会慢到 ~70s，因为有个纯死循环样本）
 CC="cc -fsanitize=address -fno-omit-frame-pointer -g" ./build.sh run
 ```
@@ -79,7 +79,7 @@ CC="cc -fsanitize=address -fno-omit-frame-pointer -g" ./build.sh run
   会得出"改了没生效"的错觉）。
 - 新用例先写成**会失败的版本**跑一遍（红证）。红证时先看 `./build.sh` 的退出码：编译失败时旧
   二进制还在，会跑出假绿。
-- 改了 `framework/` 的代码要按"改过就重验"上板：`tests/port/idf` 两块板各 37 条。
+- 改了 `framework/` 的代码要按"改过就重验"上板：`tests/port/idf` 两块板各 41 条。
 
 ---
 

@@ -9,7 +9,7 @@
 - 「接口头」一列写 `—` 表示**该能力可以被查询，但 v1 没有发布接口头**。
   这不是缺陷：`docs/pf-ops-decision.md` 说得很清楚——**查得到硬件 ≠ 有东西可调**。
   反过来，如果这里写了一份头（例如 `api/af_api/disp.h`），而文件不存在，门禁会红。
-- 位 9–31 保留，必须读 0；`PF_CAP_RESERVED_MASK` 不是能力，不进这张表。
+- 位 10–31 保留，必须读 0；`PF_CAP_RESERVED_MASK` 不是能力，不进这张表。
 
 | bit | 名字 | 宏 | 接口头 | 说明 |
 |----:|------|----|--------|------|
@@ -22,6 +22,7 @@
 | 6 | AUDIO_OUT | `PF_CAP_AUDIO_OUT` | — | 放音 |
 | 7 | AUDIO_IN | `PF_CAP_AUDIO_IN` | — | 录音 |
 | 8 | RTC | `PF_CAP_RTC` | — | 实时时钟 |
+| 9 | UART | `PF_CAP_UART` | `api/af_api/uart.h` | 应用串口（v1 每块板一路，逻辑端口 0） |
 
 ## 什么时候该改这张表
 

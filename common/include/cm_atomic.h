@@ -1,5 +1,5 @@
-#ifndef CM_ATOMIC_H
-#define CM_ATOMIC_H
+#ifndef ESP_AI_SKILL_CM_ATOMIC_H
+#define ESP_AI_SKILL_CM_ATOMIC_H
 
 /* 原子访问：跨任务、跨中断共享的标量与指针，**只经这里**读写。
  *
@@ -51,4 +51,4 @@ typedef enum cm_mem_order_e {
 /** 原子减：返回减之后的**新值**。 */
 #define CM_ATOMIC_SUB_FETCH(p, v, order)  __atomic_sub_fetch((p), (v), (int)(order))
 
-#endif /* CM_ATOMIC_H */
+#endif /* ESP_AI_SKILL_CM_ATOMIC_H */

@@ -60,7 +60,7 @@ static int pf_contract_check(const pf_ops_t *o)
 /* 故意违约的表，用来证明检查器不是"永远返回 0"。 */
 static uint32_t caps_with_reserved_bit(void)
 {
-    return (1u << 9); /* 位 9 是保留位，必须读 0 */
+    return (1u << 10); /* 位 10 是保留位，必须读 0 */
 }
 
 /* ── 共享夹具 ───────────────────────────────────────────────────── */

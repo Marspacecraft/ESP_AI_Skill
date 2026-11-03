@@ -7,9 +7,9 @@
  *   没有硬件位，说明板子报了假能力。两个方向都是静默错误，所以在
  *   `cap_available()` 里用"与"把它们合起来判。
  *
- * 为什么用固定 9 格数组 + 位号到下标的显式映射，而不是哈希表：
+ * 为什么用固定数组 + 位号到下标的显式映射，而不是哈希表：
  *
- *   能力位是**编译期已知的九个值**，映射写死就没有"查不到"这种状态；而哈希表
+ *   能力位是**编译期已知的一组值**，映射写死就没有"查不到"这种状态；而哈希表
  *   会引入"两个位落到同一槽"的可能性，那正是我们最不想在能力查询里看到的错误
  *   形态。
  *
@@ -22,7 +22,7 @@
 #include "framework/src/fw_internal.h"
 #include "platform/port/pf_cap.h"
 
-/** 九格注册表：下标与 `pf_cap.h` 的位号一一对应，见 `bit_index()`。 */
+/** 注册表：下标与 `pf_cap.h` 的位号一一对应，见 `bit_index()`。 */
 static const void *s_cap_ops[PF_CAP_COUNT];
 
 /** 位号 → 表下标。0、多位组合、保留位一律 -1（与 `cap_available()` 同一条规矩：
@@ -48,6 +48,8 @@ static int bit_index(uint32_t bit)
         return 7;
     case PF_CAP_RTC:
         return 8;
+    case PF_CAP_UART:
+        return 9;
     default:
         return -1;
     }

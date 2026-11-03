@@ -59,7 +59,7 @@ idf_component_register(SRCS ${EAIS_SRCS}
 
 - `ai-passport`（ESP32-C3）把本仓库当组件接进来，自检 14 + 9 + 6 + 8 条在**它的固件里**跑绿，
   随后产品自己的 BSP demo 照常启动。
-- 本仓库的 `tests/port/idf/` 是**独立固件**，按 `IDF_TARGET` 选端口，C3 与 S3 各跑同一份 37 条。
+- 本仓库的 `tests/port/idf/` 是**独立固件**，按 `IDF_TARGET` 选端口，C3 与 S3 各跑同一份 41 条。
 - 两边都没有为了让对方通过而修改对方的源码——只加了组件目录与一次 `fw_embed_start()` 调用。
 
 ## 还没做的

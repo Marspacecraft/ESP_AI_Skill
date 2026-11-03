@@ -217,6 +217,6 @@ typedef struct pf_task_desc {
 ## 14. 1.2 要落的东西（本单的直接产物）
 
 1. `platform/port/pf_ops.h`：`PF_OPS_VERSION 1`、`pf_mutex_t` / `pf_task_t` 不透明类型、`pf_task_desc_t`、`pf_ops_t`、能力位 `PF_CAP_*`（DISPLAY=0 … RTC=8，9–31 保留必须读 0）、`PF_TASK_MIN_STACK`。
-2. 每个成员上方一段四项中文注释：入参（含边界）/ 返回（含失败码与输出参数状态）/ 线程与中断可用性 / 注意事项。
+2. 每个成员上方一段四段中文注释：入参（含边界）/ 返回（含失败码与输出参数状态）/ 线程与中断可用性 / 注意事项。
 3. 头必须自包含：只允许 `<stdint.h>` / `<stddef.h>`，不 include 任何 `platform/` 以外的东西，也**不 include `common/`**。所以 1.2 **不写 `cm_types.h`**：端口表用 `int` / `NULL` 表达结果，错误码是框架内部把"平台失败"翻译成 `cm_err_t` 时才需要的。`common/include/cm_types.h` 推迟到第一次有框架代码要用它时（2.x），避免"先写类型再找用处"。
 4. `pf_ops.h` 里只出现平台自己的东西：`PF_OPS_VERSION`、不透明类型、`pf_task_desc_t`、能力位、`PF_TASK_MIN_STACK`。任何 `cm_` 前缀出现在这个头里，都说明它把公共层拖进端口了。

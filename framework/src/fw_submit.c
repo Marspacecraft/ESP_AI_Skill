@@ -144,7 +144,10 @@ cm_err_t fw_svc_submit(fw_svc_id_t svc, uint32_t key, const void *data, size_t l
     if (slot == NULL) {
         unlock();
         ops->mem_free(copy);
-        return CM_ERR_NOMEM;      /* 表满：帧没地方放，宁可让调用方知道 */
+        /* **表满是 BUSY，不是 NOMEM**。八格全占着说明服务那边还没消费完，
+         * 调用方该等一下再试；报 NOMEM 会让人去查一个并不存在的内存泄漏。
+         * 这条是 9.4 的真机用例发现的：host 上没人把表填满过。 */
+        return CM_ERR_BUSY;
     }
 
     slot->svc = svc;

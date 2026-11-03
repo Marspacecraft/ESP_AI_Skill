@@ -213,6 +213,30 @@ TT_CASE(bad_arguments_are_rejected)
     stop_all();
 }
 
+/* 8 格全占满时提交第 9 个：必须是 **BUSY**（"服务那边还没消费完，等会儿再来"），
+ * 不能是 NOMEM（"整机没内存了"）。这两个码指向两种完全不同的排查方向。
+ * 这条用例是 9.4 在真机上先红的——host 上从没人把表填满过。 */
+TT_CASE(full_table_is_busy_not_nomem)
+{
+    unsigned char one[2] = {9u, 9u};
+    unsigned char out[8];
+    uint32_t key = 0u;
+    size_t got = 0u;
+
+    setup_registered();
+    for (uint32_t k = 1u; k <= FW_SUBMIT_SLOTS; k++) {
+        TT_ASSERT_INT(CM_OK, fw_svc_submit(SVC_FRAME, k, one, sizeof one, NULL, NULL));
+    }
+    TT_ASSERT_INT(CM_ERR_BUSY, fw_svc_submit(SVC_FRAME, 99u, one, sizeof one, NULL, NULL));
+    TT_ASSERT_INT((int)FW_SUBMIT_SLOTS, (int)fw_svc_submit_count(SVC_FRAME));
+
+    for (uint32_t k = 1u; k <= FW_SUBMIT_SLOTS; k++) {
+        TT_ASSERT_INT(CM_OK, fw_svc_submit_take(SVC_FRAME, &key, out, sizeof out, &got));
+    }
+    TT_ASSERT_INT(0, (int)fw_svc_submit_count(SVC_FRAME));
+    stop_all();
+}
+
 int main(void)
 {
     TT_PROGRAM("test_fw_submit");
@@ -223,5 +247,6 @@ int main(void)
     TT_RUN(small_capacity_leaves_the_frame_in_place);
     TT_RUN(bad_arguments_are_rejected);
     TT_RUN(submit_to_unregistered_service_is_not_supported);
+    TT_RUN(full_table_is_busy_not_nomem);
     return tt_summary();
 }

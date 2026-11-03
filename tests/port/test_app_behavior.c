@@ -33,6 +33,18 @@ static int g_init_calls;
 static int g_exit_calls;
 static int g_ticks;
 
+typedef struct {
+    uint32_t key;
+    int superseded;
+} done_ev_t;
+
+static done_ev_t g_ev[8];
+static int g_ev_n;
+static int g_done_calls;
+static int g_done_superseded;
+static uint32_t g_done_key;
+static uint8_t g_svc_id;
+
 static int obs_get(const int *p) { return __atomic_load_n(p, __ATOMIC_ACQUIRE); }
 static void obs_add(int *p) { (void)__atomic_add_fetch(p, 1, __ATOMIC_RELAXED); }
 
@@ -81,6 +93,19 @@ static void spin_task(app_ctx_t *ctx)
     }
 }
 
+/* 服务宿主：`init()` 里把服务 11 登记到自己名下，任务只负责转圈。
+ * 提交与取走都由主任务做——`fw_svc_submit*` 不要求调用者在 App 任务里，
+ * 这样取帧时机是确定的，不用在两条任务之间对齐节奏。 */
+static cm_err_t svc_init(app_ctx_t *ctx)
+{
+    (void)ctx;
+    obs_add(&g_init_calls);
+    g_svc_id = 11u;
+    return fw_svc_register(g_svc_id, fw_current_ctx());
+}
+
+static void svc_task(app_ctx_t *ctx) { (void)ctx; for (;;) { obs_add(&g_ticks); fw_delay_block(20u); } }
+
 /* 一次要 1000 ms 的延时：用来证明"切片"真的把长等待切碎了。 */
 static void slow_task(app_ctx_t *ctx) { (void)ctx; obs_add(&g_ticks); fw_delay_block(1000u); obs_add(&g_ticks); }
 
@@ -94,6 +119,10 @@ static const app_desc_t bad_desc = {
 };
 static const app_desc_t spin_desc = {
     .id = 43u, .name = "beh_spin", .init = ok_init, .exit = ok_exit, .task = spin_task,
+    .stack_bytes = APP_STACK_MIN, .flags = APP_FLAG_SYSTEM,
+};
+static const app_desc_t svc_desc = {
+    .id = 44u, .name = "beh_svc", .init = svc_init, .exit = ok_exit, .task = svc_task,
     .stack_bytes = APP_STACK_MIN, .flags = APP_FLAG_SYSTEM,
 };
 static const app_desc_t slow_desc = {
@@ -139,6 +168,10 @@ static void reset_all(void)
     g_init_calls = 0;
     g_exit_calls = 0;
     g_ticks = 0;
+    __atomic_store_n(&g_done_calls, 0, __ATOMIC_RELEASE);
+    __atomic_store_n(&g_done_superseded, 0, __ATOMIC_RELEASE);
+    __atomic_store_n(&g_done_key, 0u, __ATOMIC_RELEASE);
+    g_ev_n = 0;
 }
 
 static uint32_t now_ms(void) { return pf_platform_ops()->clock_ms(); }
@@ -257,6 +290,145 @@ TT_CASE(init_failure_becomes_failed_and_exits_once)
     reset_all();
 }
 
+/* ------------------------------------------------------------------ */
+/* 服务层：注册表 + 提交型接口（清单第 5/6 条的真机证据）                */
+/* ------------------------------------------------------------------ */
+
+static void on_done(uint32_t key, int superseded, void *user)
+{
+    (void)user;
+    int n = __atomic_fetch_add(&g_ev_n, 1, __ATOMIC_RELAXED);
+
+    if (n < 8) {
+        g_ev[n].key = key;
+        g_ev[n].superseded = superseded;
+    }
+    obs_add(&g_done_calls);
+    if (superseded) {
+        __atomic_store_n(&g_done_superseded, 1, __ATOMIC_RELEASE);
+    }
+    __atomic_store_n(&g_done_key, key, __ATOMIC_RELEASE);
+}
+
+static int start_service_host(void)
+{
+    fw_manifest_t m = manifest_of(&svc_desc);
+    int rc = (int)fw_embed_start(&m);
+
+    if (rc != (int)CM_OK) {
+        return rc;
+    }
+    /* `init()` 跑在 App 自己的任务里，必须先等它把服务登记好。 */
+    for (int i = 0; i < 100; i++) {
+        if (fw_svc_ready(g_svc_id) == CM_OK) {
+            return (int)CM_OK;
+        }
+        pf_platform_ops()->sleep_ms(5u);
+    }
+    return (int)fw_svc_ready(g_svc_id);
+}
+
+TT_CASE(service_registry_answers_ready_then_unavailable_after_exit)
+{
+    struct fw_app_ctx *c;
+
+    reset_all();
+    g_ev_n = 0;
+    g_done_calls = 0;
+    g_done_superseded = 0;
+    TT_ASSERT_INT((int)CM_OK, start_service_host());
+    TT_ASSERT_TRUE(fw_svc_owner(g_svc_id) != NULL);
+
+    c = fw_live_at(0u);
+    TT_ASSERT_TRUE(c != NULL);
+    fw_app_request_cancel(c);
+    TT_ASSERT_INT((int)FW_APP_STATE_STOPPED, wait_terminal(c, 2000u));
+
+    /* 崩了/停了不是"这块板没有这个服务"：表项还在、只是没人认领（D23）。 */
+    TT_ASSERT_INT((int)CM_ERR_UNAVAILABLE, (int)fw_svc_ready(g_svc_id));
+    TT_ASSERT_TRUE(fw_svc_owner(g_svc_id) == NULL);
+    reset_all();
+}
+
+TT_CASE(submit_copies_the_caller_buffer)
+{
+    uint8_t src[200];
+    uint8_t got[200];
+    uint32_t key = 0u;
+    size_t len = 0u;
+
+    reset_all();
+    TT_ASSERT_INT((int)CM_OK, start_service_host());
+
+    for (size_t i = 0; i < sizeof src; i++) {
+        src[i] = 0xAAu;
+    }
+    TT_ASSERT_INT((int)CM_OK, (int)fw_svc_submit(g_svc_id, 7u, src, sizeof src, on_done, NULL));
+
+    /* 提交返回后立刻改写调用方缓冲：拷贝语义要求这不会影响已提交的帧。 */
+    for (size_t i = 0; i < sizeof src; i++) {
+        src[i] = 0x5Au;
+    }
+
+    TT_ASSERT_INT((int)CM_OK, (int)fw_svc_submit_take(g_svc_id, &key, got, sizeof got, &len));
+    TT_ASSERT_INT(7, (int)key);
+    TT_ASSERT_INT(200, (int)len);
+    TT_ASSERT_INT(0xAA, got[0]);
+    TT_ASSERT_INT(0xAA, got[199]);
+    TT_ASSERT_INT(1, obs_get(&g_done_calls));
+    TT_ASSERT_INT(0, __atomic_load_n(&g_done_superseded, __ATOMIC_ACQUIRE));
+    reset_all();
+}
+
+TT_CASE(same_key_overwrites_and_notifies_the_old_frame)
+{
+    uint8_t a[4] = { 1u, 1u, 1u, 1u };
+    uint8_t b[4] = { 2u, 2u, 2u, 2u };
+    uint8_t got[8];
+    uint32_t key = 0u;
+    size_t len = 0u;
+
+    reset_all();
+    TT_ASSERT_INT((int)CM_OK, start_service_host());
+
+    TT_ASSERT_INT((int)CM_OK, (int)fw_svc_submit(g_svc_id, 3u, a, sizeof a, on_done, NULL));
+    TT_ASSERT_INT((int)CM_OK, (int)fw_svc_submit(g_svc_id, 3u, b, sizeof b, on_done, NULL));
+    TT_ASSERT_INT(1, obs_get(&g_done_calls));
+    TT_ASSERT_INT(1, __atomic_load_n(&g_done_superseded, __ATOMIC_ACQUIRE));
+    TT_ASSERT_INT(1, (int)fw_svc_submit_count(g_svc_id));
+
+    TT_ASSERT_INT((int)CM_OK, (int)fw_svc_submit_take(g_svc_id, &key, got, sizeof got, &len));
+    TT_ASSERT_INT(3, (int)key);
+    TT_ASSERT_INT(4, (int)len);
+    TT_ASSERT_INT(2, got[0]);
+    TT_ASSERT_INT(2, got[3]);
+    reset_all();
+}
+
+TT_CASE(submit_table_full_is_busy_not_nomem)
+{
+    uint8_t one[2] = { 9u, 9u };
+    uint8_t got[8];
+    uint32_t key = 0u;
+    size_t len = 0u;
+
+    reset_all();
+    TT_ASSERT_INT((int)CM_OK, start_service_host());
+
+    for (uint32_t k = 1u; k <= FW_SUBMIT_SLOTS; k++) {
+        TT_ASSERT_INT((int)CM_OK, (int)fw_svc_submit(g_svc_id, k, one, sizeof one, on_done, NULL));
+    }
+    TT_ASSERT_INT((int)CM_ERR_BUSY, (int)fw_svc_submit(g_svc_id, 99u, one, sizeof one, on_done, NULL));
+    TT_ASSERT_INT((int)FW_SUBMIT_SLOTS, (int)fw_svc_submit_count(g_svc_id));
+
+    for (uint32_t k = 1u; k <= FW_SUBMIT_SLOTS; k++) {
+        TT_ASSERT_INT((int)CM_OK, (int)fw_svc_submit_take(g_svc_id, &key, got, sizeof got, &len));
+    }
+    TT_ASSERT_INT(0, (int)fw_svc_submit_count(g_svc_id));
+    TT_ASSERT_INT((int)CM_ERR_NOT_SUPPORTED, (int)fw_svc_submit_take(g_svc_id, &key, got, sizeof got, &len));
+    reset_all();
+}
+
 TT_CASE(busy_loop_is_detected_but_cancel_does_not_stop_it)
 {
     fw_manifest_t m = manifest_of(&spin_desc);
@@ -301,6 +473,10 @@ int main(void)
     TT_RUN(cancel_stops_the_task_and_calls_exit_exactly_once);
     TT_RUN(long_delay_is_cut_into_slices);
     TT_RUN(init_failure_becomes_failed_and_exits_once);
+    TT_RUN(service_registry_answers_ready_then_unavailable_after_exit);
+    TT_RUN(submit_copies_the_caller_buffer);
+    TT_RUN(same_key_overwrites_and_notifies_the_old_frame);
+    TT_RUN(submit_table_full_is_busy_not_nomem);
     TT_RUN(busy_loop_is_detected_but_cancel_does_not_stop_it);
     return tt_summary();
 }

@@ -306,7 +306,17 @@ struct fw_app_ctx {
     uint32_t state;                 /* fw_app_state_e */
     uint32_t exit_calls;            /* exit() 被调用过几次（只该是 0 或 1） */
     uint32_t in_exit;               /* 1 = 正在跑 exit()：取消位失效 */
+    res_kind_e slot_kind[APP_CTX_SLOTS]; /* 每个槽位的资源种类（槽位为空时无意义） */
+    res_life_e slot_life[APP_CTX_SLOTS]; /* 生命周期：决定退出路径管不管它 */
+    uint32_t slots_released;             /* 退出路径回收了几个槽位（测试用） */
 };
+
+/** 退出路径第 ③ 步：回收所有 `RES_LIFE_APP` 的槽位，恰好一次。
+ *  只给 `fw_run_exit()` 用。`RES_LIFE_BOOT` 的槽位**不动**（不是我们的东西）。 */
+void fw_res_release_all(struct fw_app_ctx *c);
+
+/** 这个实例在退出路径上回收了几个槽位。测试与诊断用。 */
+uint32_t fw_app_slots_released(const struct fw_app_ctx *c);
 
 /* 跨任务读写的四个字段**必须**经下面三个函数访问。
  *

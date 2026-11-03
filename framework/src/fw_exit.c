@@ -46,6 +46,8 @@ void fw_run_exit(struct fw_app_ctx *c, fw_app_state_e end_state)
      *    服务先摘：它引用的是上下文本身，若等到上下文被管理器释放再摘，
      *    查表的一方会拿到一根野指针。`res_track()` 要阶段 6，目前是空步。 */
     fw_svc_drop_owner(c);
+    /* 只回收 RES_LIFE_APP 的槽位；BOOT 的是借来的，不动（见 fw_app.h）。 */
+    fw_res_release_all(c);
 
     /* ④ 终态。 */
     fw_atomic_store_u32(&c->state, (uint32_t)end_state);

@@ -210,5 +210,6 @@ void fw_reset(void)
     s_initialized = 0;
     fw_svc_forget();
     fw_submit_forget();
+    fw_event_forget();
     fw_boot_forget();
 }

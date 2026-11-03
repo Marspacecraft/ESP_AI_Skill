@@ -54,6 +54,13 @@ struct fw_app_ctx *fw_app_ctx_new_with_id(const app_desc_t *desc, uint32_t id)
     if (id < APP_ID_MIN || id > APP_ID_MAX) {
         return NULL; /* 0 是无效哨兵，1 是管理器，都不该跑到实例 id 上 */
     }
+    /* 清单路径由 `fw_init()` 校验过；这里直接建的实例没经过注册表，
+     * 必须自己校验一遍——否则 NULL 的 init/task 会在任务入口里变成段错误，
+     * 而段错误是这块板上最难查的那种失败。 */
+    if (desc->name == NULL || desc->init == NULL || desc->exit == NULL ||
+        desc->task == NULL) {
+        return NULL;
+    }
 
     c = (struct fw_app_ctx *)ops->mem_alloc(sizeof *c);
     if (c == NULL) {

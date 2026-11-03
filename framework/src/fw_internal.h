@@ -273,6 +273,9 @@ cm_err_t fw_submit_init(void);
 /** 丢掉所有待取帧（各自触发 `done(key, 1, user)`）并清锁。**只给 `fw_reset()`。** */
 void fw_submit_forget(void);
 
+/** 清空全部事件主题（`fw_reset()` 用）。 */
+void fw_event_forget(void);
+
 
 /** 清空活实例表。**只给 `fw_reset()` 用**。 */
 void fw_boot_forget(void);

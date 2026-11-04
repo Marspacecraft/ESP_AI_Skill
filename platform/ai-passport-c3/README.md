@@ -43,7 +43,7 @@ perl -e 'alarm 15; exec @ARGV' idf.py -p /dev/cu.usbmodemXXXX monitor
 ## 能力面：串口（第一项真实能力，D58）
 
 `pf_platform_boot()` 在 `fw_init()` 之前被框架调一次，把串口的 vtable 注册给框架；
-`esp_port_caps()` 同时点亮 `PF_CAP_UART`（位 9）。两者缺一，`cap_available(CAP_UART)` 就是假。
+`pf_port_caps()` 同时点亮 `PF_CAP_UART`（位 9）。两者缺一，`cap_available(CAP_UART)` 就是假。
 
 | 项 | 值 |
 |---|---|

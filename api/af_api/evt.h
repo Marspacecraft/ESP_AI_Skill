@@ -112,6 +112,8 @@ cm_err_t fw_event_wait(evt_topic_t topic, void *buf, size_t cap_bytes, size_t *o
  *         `CM_ERR_TIMEOUT` **队列里现在没有事件**（不是错误，是"还没有"）。
  *         线程与中断：任意任务可调；ISR 里也能调（无锁），但从 ISR 取事件
  *         通常说明方向反了——先想清楚为什么不是"投递 → 任务处理"。
+ *         注意事项：取走后队列空间立刻释放（D27：投递时已拷贝）；`out_len` 只在
+ *                   返回 `CM_OK` 时有意义。
  */
 cm_err_t fw_event_take(evt_topic_t topic, void *buf, size_t cap_bytes, size_t *out_len);
 

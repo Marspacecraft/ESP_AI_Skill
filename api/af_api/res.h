@@ -108,7 +108,10 @@ cm_err_t fw_res_revoke(struct app_ctx *ctx);
  *                       `RES_KIND_MEM` 的 `res_acquire`）。
  * @param quota_bytes    可为 NULL；0 表示不限。
  * @param denied_count   可为 NULL；因配额被拒的次数。
+ * @return 无（三个出参都是可选写）。
  *         线程与中断：任意任务可调；ISR 禁止。
+ *         注意事项：`used_bytes` 只算框架记账的分配（`fw_alloc` 与 `RES_KIND_MEM`），
+ *                   平台自己 malloc 的不在其中；读到的是一致性快照，但紧接着就可能变。
  */
 void fw_res_usage(const struct app_ctx *ctx, size_t *used_bytes, size_t *quota_bytes,
                   uint32_t *denied_count);

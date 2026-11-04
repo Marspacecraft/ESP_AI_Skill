@@ -10,11 +10,11 @@
  * 超时变成忙等、`task_exit_current()` 之后还接着执行。它们在本文件里各自
  * 对应一条会红的用例。
  */
-#include "tinytest.h"
-#include "platform/port/pf_ops.h"
-
 #include <stdint.h>
 #include <string.h>
+
+#include "tinytest.h"
+#include "platform/port/pf_ops.h"
 
 static const pf_ops_t *ops(void)
 {

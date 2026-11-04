@@ -9,9 +9,9 @@
  * 为什么要拷贝：ISR 里填的那块缓冲，App 读之前可能已经被下一次中断覆盖。
  * 这种错误不会崩、不会报错，只是偶尔显示一帧旧数据——静默错误比崩溃贵。
  */
-#include "framework/src/fw_internal.h"
-
 #include <string.h>
+
+#include "framework/src/fw_internal.h"
 
 struct fw_evt_slot {
     uint32_t len;
@@ -26,9 +26,14 @@ struct fw_evt_topic {
     struct fw_evt_slot slots[FW_EVENT_DEPTH];
 };
 
+/* 主题表。用途：每个 topic 的负载大小与环形队列（D28：一个 topic 一个生产者上下文）。
+ * 谁写：`fw_event_declare()` 写 `payload`；生产者写 `head`、消费者写 `tail`，且各自
+ *       只写自己的工作指针；`fw_event_forget()` 复位全部字段。
+ * 并发约定：跨任务/ISR 的字段一律 `CM_ATOMIC_*`（写 RELEASE、读 ACQUIRE）；
+ *           声明只在 App 任务里做，ISR 只读已声明的 `payload`。 */
 static struct fw_evt_topic s_topics[FW_EVENT_TOPICS];
 
-static struct fw_evt_topic *topic_find(evt_topic_t topic)
+static struct fw_evt_topic *fw_topic_find(evt_topic_t topic)
 {
     if (topic == 0u || topic > FW_EVENT_TOPICS) {
         return NULL;
@@ -61,9 +66,9 @@ cm_err_t fw_event_declare(evt_topic_t topic, size_t payload_bytes)
 
 /* 生产者侧：写槽位，然后**最后**发布 head。
  * 消费者先读 head（acquire），看到的槽位一定是写完的。 */
-static cm_err_t event_put(evt_topic_t topic, const void *data, size_t len)
+static cm_err_t fw_event_put(evt_topic_t topic, const void *data, size_t len)
 {
-    struct fw_evt_topic *t = topic_find(topic);
+    struct fw_evt_topic *t = fw_topic_find(topic);
     uint32_t h;
     uint32_t tl;
     struct fw_evt_slot *slot;
@@ -89,12 +94,12 @@ static cm_err_t event_put(evt_topic_t topic, const void *data, size_t len)
 
 cm_err_t fw_event_post(evt_topic_t topic, const void *data, size_t len)
 {
-    return event_put(topic, data, len);
+    return fw_event_put(topic, data, len);
 }
 
 cm_err_t fw_event_post_isr(evt_topic_t topic, const void *data)
 {
-    struct fw_evt_topic *t = topic_find(topic);
+    struct fw_evt_topic *t = fw_topic_find(topic);
     size_t len;
 
     if (t == NULL) {
@@ -105,13 +110,13 @@ cm_err_t fw_event_post_isr(evt_topic_t topic, const void *data)
     }
     /* 长度由声明决定：中断里不校验，也不返回长度参数。 */
     len = CM_ATOMIC_LOAD(&t->payload, CM_MEM_ACQUIRE);
-    return event_put(topic, data, len);
+    return fw_event_put(topic, data, len);
 }
 
 /* 消费者侧：读槽位，然后**最后**发布 tail。 */
-static cm_err_t event_get(evt_topic_t topic, void *buf, size_t cap, size_t *out_len)
+static cm_err_t fw_event_get(evt_topic_t topic, void *buf, size_t cap, size_t *out_len)
 {
-    struct fw_evt_topic *t = topic_find(topic);
+    struct fw_evt_topic *t = fw_topic_find(topic);
     uint32_t tl;
     uint32_t h;
     uint32_t pending;
@@ -153,7 +158,7 @@ static cm_err_t event_get(evt_topic_t topic, void *buf, size_t cap, size_t *out_
 
 cm_err_t fw_event_take(evt_topic_t topic, void *buf, size_t cap_bytes, size_t *out_len)
 {
-    return event_get(topic, buf, cap_bytes, out_len);
+    return fw_event_get(topic, buf, cap_bytes, out_len);
 }
 
 cm_err_t fw_event_wait(evt_topic_t topic, void *buf, size_t cap_bytes, size_t *out_len,
@@ -163,7 +168,7 @@ cm_err_t fw_event_wait(evt_topic_t topic, void *buf, size_t cap_bytes, size_t *o
     uint32_t start;
     cm_err_t rc;
 
-    if (topic_find(topic) == NULL) {
+    if (fw_topic_find(topic) == NULL) {
         return CM_ERR_NOT_SUPPORTED; /* 先判主题：没这个能力比"没在 App 里"更具体 */
     }
     if (c == NULL || fw_ops() == NULL) {
@@ -171,7 +176,7 @@ cm_err_t fw_event_wait(evt_topic_t topic, void *buf, size_t cap_bytes, size_t *o
     }
     start = fw_ops()->clock_ms();
     for (;;) {
-        rc = event_get(topic, buf, cap_bytes, out_len);
+        rc = fw_event_get(topic, buf, cap_bytes, out_len);
         if (rc != CM_ERR_TIMEOUT) {
             return rc;
         }
@@ -187,7 +192,7 @@ cm_err_t fw_event_wait(evt_topic_t topic, void *buf, size_t cap_bytes, size_t *o
 void fw_event_forget(void)
 {
     /* 全部走原子写：生产者可能还在提交（TSan 抓过一次：
-     * `fw_event_forget` 的普通写撞上 `event_put` 的原子写）。`fw_reset()` 的
+     * `fw_event_forget` 的普通写撞上 `fw_event_put` 的原子写）。`fw_reset()` 的
      * 调用约定是"先停生产者再清表"，但检查器不该依赖调用方守规矩。 */
     for (uint32_t i = 0; i < FW_EVENT_TOPICS; i++) {
         CM_ATOMIC_STORE(&s_topics[i].head, 0u, CM_MEM_RELEASE);

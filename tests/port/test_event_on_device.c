@@ -10,13 +10,6 @@
  * 同一个用例在 host 上也跑：host 的 pthread 一样会把丢帧暴露出来（实测 933 提交 /
  * 530 取回），S3 上再跑一次是为了看**双核并行**会不会让它更糟。
  */
-#include "tinytest.h"
-
-#include "framework/include/fw_app.h"
-#include "framework/include/fw_embed.h"
-#include "framework/src/fw_internal.h"
-#include "platform/port/pf_ops.h"
-
 #if defined(ESP_PLATFORM)
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -24,6 +17,13 @@
 #include <pthread.h>
 #include <time.h>
 #endif
+
+#include "tinytest.h"
+
+#include "framework/include/fw_app.h"
+#include "framework/include/fw_embed.h"
+#include "framework/src/fw_internal.h"
+#include "platform/port/pf_ops.h"
 
 #define T_BUTTON 1u
 #define T_LEAK 2u

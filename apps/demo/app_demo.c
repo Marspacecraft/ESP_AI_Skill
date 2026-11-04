@@ -21,24 +21,29 @@
 #define APP_DEMO_ID 2u
 #define APP_DEMO_DELAY_MS 100u
 
+/* 三个观测计数器。用途：给测试当"App 真的在跑/真的被回收了"的证据。
+ * 谁写：`s_ticks` 由 App 自己的任务每轮 +1；`s_inits`/`s_exits` 由
+ *       `app_demo_init()`/`app_demo_exit()` 各 +1（都在 App 任务里）。
+ * 并发约定：读的一方通常是测试主任务，所以读写一律走 `CM_ATOMIC_*`（RELAXED）。
+ *           它们**不提供同步语义**——别拿计数器当信号量用。 */
 static uint32_t s_ticks;
 static uint32_t s_inits;
 static uint32_t s_exits;
 
-static cm_err_t demo_init(app_ctx_t *ctx)
+static cm_err_t app_demo_init(app_ctx_t *ctx)
 {
     (void)ctx;
     (void)CM_ATOMIC_ADD_FETCH(&s_inits, 1u, CM_MEM_RELAXED);
     return CM_OK;
 }
 
-static void demo_exit(app_ctx_t *ctx)
+static void app_demo_exit(app_ctx_t *ctx)
 {
     (void)ctx;
     (void)CM_ATOMIC_ADD_FETCH(&s_exits, 1u, CM_MEM_RELAXED);
 }
 
-static void demo_task(app_ctx_t *ctx)
+static void app_demo_task(app_ctx_t *ctx)
 {
     (void)ctx;
     for (;;) {
@@ -48,8 +53,8 @@ static void demo_task(app_ctx_t *ctx)
 }
 
 const app_desc_t app_demo_desc = {
-    APP_DEMO_ID,   "demo",          demo_init, demo_exit,
-    demo_task,     APP_FLAG_SYSTEM, /* 样板 App 随 boot 起来：它没有管理器，自己就是第一个 */
+    APP_DEMO_ID,   "demo",          app_demo_init, app_demo_exit,
+    app_demo_task, APP_FLAG_SYSTEM, /* 样板 App 随 boot 起来：它没有管理器，自己就是第一个 */
     APP_STACK_MIN,
 };
 

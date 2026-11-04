@@ -42,11 +42,11 @@ struct pf_task {
 typedef struct {
     void (*entry)(void *);
     void *arg;
-} esp_port_task_boot_t;
+} pf_port_task_boot_t;
 
 /* ---------------- 内存 ---------------- */
 
-static void *esp_port_mem_alloc(size_t bytes)
+static void *pf_port_mem_alloc(size_t bytes)
 {
     if (bytes == 0u) {
         return NULL;
@@ -54,21 +54,21 @@ static void *esp_port_mem_alloc(size_t bytes)
     return malloc(bytes);
 }
 
-static void esp_port_mem_free(void *p)
+static void pf_port_mem_free(void *p)
 {
     free(p);
 }
 
 /* ---------------- 时钟与延时 ---------------- */
 
-static uint32_t esp_port_clock_ms(void)
+static uint32_t pf_port_clock_ms(void)
 {
     /* esp_timer_get_time() 是 64 位微秒；截断成 uint32_t 后约 49.7 天回绕，
      * 由调用方用差值比较处理（见 pf_ops.h 的 clock_ms 注释）。 */
     return (uint32_t)(esp_timer_get_time() / 1000);
 }
 
-static void esp_port_sleep_ms(uint32_t ms)
+static void pf_port_sleep_ms(uint32_t ms)
 {
     TickType_t ticks;
 
@@ -88,7 +88,7 @@ static void esp_port_sleep_ms(uint32_t ms)
 
 /* ---------------- 互斥 ---------------- */
 
-static pf_mutex_t *esp_port_mutex_create(void)
+static pf_mutex_t *pf_port_mutex_create(void)
 {
     pf_mutex_t *m = (pf_mutex_t *)malloc(sizeof(*m));
 
@@ -103,7 +103,7 @@ static pf_mutex_t *esp_port_mutex_create(void)
     return m;
 }
 
-static int esp_port_mutex_take(pf_mutex_t *m, uint32_t timeout_ms)
+static int pf_port_mutex_take(pf_mutex_t *m, uint32_t timeout_ms)
 {
     TickType_t ticks;
 
@@ -121,7 +121,7 @@ static int esp_port_mutex_take(pf_mutex_t *m, uint32_t timeout_ms)
     return (xSemaphoreTake(m->h, ticks) == pdTRUE) ? 0 : -1;
 }
 
-static void esp_port_mutex_give(pf_mutex_t *m)
+static void pf_port_mutex_give(pf_mutex_t *m)
 {
     if (m != NULL) {
         (void)xSemaphoreGive(m->h);
@@ -130,9 +130,9 @@ static void esp_port_mutex_give(pf_mutex_t *m)
 
 /* ---------------- 任务 ---------------- */
 
-static void esp_port_task_trampoline(void *p)
+static void pf_port_task_trampoline(void *p)
 {
-    esp_port_task_boot_t boot = *(esp_port_task_boot_t *)p;
+    pf_port_task_boot_t boot = *(pf_port_task_boot_t *)p;
 
     free(p); /* 启动参数是分配出来的，进任务后立刻还掉 */
     boot.entry(boot.arg);
@@ -141,10 +141,10 @@ static void esp_port_task_trampoline(void *p)
     vTaskDelete(NULL);
 }
 
-static pf_task_t *esp_port_task_create(const pf_task_desc_t *desc)
+static pf_task_t *pf_port_task_create(const pf_task_desc_t *desc)
 {
     pf_task_t *t;
-    esp_port_task_boot_t *boot;
+    pf_port_task_boot_t *boot;
 
     if (desc == NULL || desc->entry == NULL) {
         return NULL;
@@ -157,7 +157,7 @@ static pf_task_t *esp_port_task_create(const pf_task_desc_t *desc)
     if (t == NULL) {
         return NULL;
     }
-    boot = (esp_port_task_boot_t *)malloc(sizeof(*boot));
+    boot = (pf_port_task_boot_t *)malloc(sizeof(*boot));
     if (boot == NULL) {
         free(t);
         return NULL;
@@ -165,7 +165,7 @@ static pf_task_t *esp_port_task_create(const pf_task_desc_t *desc)
     boot->entry = desc->entry;
     boot->arg = desc->arg;
 
-    if (xTaskCreate(esp_port_task_trampoline, (desc->name != NULL) ? desc->name : "app",
+    if (xTaskCreate(pf_port_task_trampoline, (desc->name != NULL) ? desc->name : "app",
                     (uint32_t)(desc->stack_bytes / sizeof(StackType_t)), boot, ESP_PORT_TASK_PRIO,
                     &t->h) != pdPASS) {
         free(boot);
@@ -177,7 +177,7 @@ static pf_task_t *esp_port_task_create(const pf_task_desc_t *desc)
     return t;
 }
 
-static void esp_port_task_exit_current(void)
+static void pf_port_task_exit_current(void)
 {
     /* 删自己：本函数不再返回（TCB 由 IDLE 任务回收）。 */
     vTaskDelete(NULL);
@@ -195,9 +195,13 @@ static void esp_port_task_exit_current(void)
 #define UART_APP_TX 17
 #define UART_APP_RX 18
 
+/* 串口是否已打开。用途：挡住"没打开就写/读"和"重复打开"。
+ * 谁写：`pf_port_uart_open()` 置 1、`pf_port_uart_close()` 清 0。
+ * 并发约定：只在 App 任务里用（`uart_*` 本来就要求 App 上下文），
+ *           所以不加锁；但换板时别把它当成可跨任务共享的状态。 */
 static int s_uart_opened;
 
-static int app_uart_open(uint32_t port, uint32_t baud)
+static int pf_port_uart_open(uint32_t port, uint32_t baud)
 {
     /* 必须**整体清零**再逐字段赋值：`uart_config_t` 里还有 `rx_flow_ctrl_thresh`
      * 这种"硬件流控关掉时按 0 校验"的字段，未初始化时它是栈上的垃圾值——
@@ -232,7 +236,7 @@ static int app_uart_open(uint32_t port, uint32_t baud)
     return 0;
 }
 
-static int app_uart_close(uint32_t port)
+static int pf_port_uart_close(uint32_t port)
 {
     if (port != 0u || !s_uart_opened) {
         return -1;
@@ -244,7 +248,7 @@ static int app_uart_close(uint32_t port)
     return 0;
 }
 
-static int app_uart_write(uint32_t port, const void *buf, size_t len, uint32_t timeout_ms)
+static int pf_port_uart_write(uint32_t port, const void *buf, size_t len, uint32_t timeout_ms)
 {
     int n;
 
@@ -256,7 +260,7 @@ static int app_uart_write(uint32_t port, const void *buf, size_t len, uint32_t t
     return (n < 0) ? -1 : n;
 }
 
-static int app_uart_read(uint32_t port, void *buf, size_t cap, uint32_t timeout_ms)
+static int pf_port_uart_read(uint32_t port, void *buf, size_t cap, uint32_t timeout_ms)
 {
     int n;
 
@@ -270,13 +274,13 @@ static int app_uart_read(uint32_t port, void *buf, size_t cap, uint32_t timeout_
 static const pf_uart_ops_t s_uart_ops = {
     .version = PF_UART_OPS_VERSION,
     .count = 1u,
-    .open = app_uart_open,
-    .close = app_uart_close,
-    .write = app_uart_write,
-    .read = app_uart_read,
+    .open = pf_port_uart_open,
+    .close = pf_port_uart_close,
+    .write = pf_port_uart_write,
+    .read = pf_port_uart_read,
 };
 
-static uint32_t esp_port_caps(void)
+static uint32_t pf_port_caps(void)
 {
     /* 只点亮**已经有接口头**的能力：目前只有串口（`api/af_api/uart.h`）。
      * PSRAM/Flash/Wi-Fi/BLE 都在板上，但本仓库没有对应能力头，
@@ -288,16 +292,16 @@ static uint32_t esp_port_caps(void)
 
 const pf_ops_t pf_espidf_ops = {
     .version = PF_OPS_VERSION,
-    .caps = esp_port_caps,
-    .mem_alloc = esp_port_mem_alloc,
-    .mem_free = esp_port_mem_free,
-    .clock_ms = esp_port_clock_ms,
-    .sleep_ms = esp_port_sleep_ms,
-    .mutex_create = esp_port_mutex_create,
-    .mutex_take = esp_port_mutex_take,
-    .mutex_give = esp_port_mutex_give,
-    .task_create = esp_port_task_create,
-    .task_exit_current = esp_port_task_exit_current,
+    .caps = pf_port_caps,
+    .mem_alloc = pf_port_mem_alloc,
+    .mem_free = pf_port_mem_free,
+    .clock_ms = pf_port_clock_ms,
+    .sleep_ms = pf_port_sleep_ms,
+    .mutex_create = pf_port_mutex_create,
+    .mutex_take = pf_port_mutex_take,
+    .mutex_give = pf_port_mutex_give,
+    .task_create = pf_port_task_create,
+    .task_exit_current = pf_port_task_exit_current,
 };
 
 const pf_ops_t *pf_platform_ops(void)

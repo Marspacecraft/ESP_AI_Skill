@@ -32,7 +32,7 @@ static uint32_t s_opened;
 
 /** 取串口实现表；没有这项能力（未注册 / 硬件没报）返回 NULL。
  *  版本不符也按"没有"处理——表布局变了，硬解引用是在读未定义内存。 */
-static const pf_uart_ops_t *uart_ops(void)
+static const pf_uart_ops_t *fw_uart_ops_get(void)
 {
     const pf_uart_ops_t *ops;
 
@@ -49,19 +49,19 @@ static const pf_uart_ops_t *uart_ops(void)
     return ops;
 }
 
-static bool port_valid(const pf_uart_ops_t *ops, uint32_t port)
+static bool fw_port_valid(const pf_uart_ops_t *ops, uint32_t port)
 {
     return (ops != NULL) && (port < ops->count);
 }
 
-static bool opened(uint32_t port)
+static bool fw_is_opened(uint32_t port)
 {
     return (s_opened & (1u << port)) != 0u;
 }
 
-static void set_opened(uint32_t port, bool on)
+static void fw_set_opened(uint32_t port, bool is_open)
 {
-    if (on) {
+    if (is_open) {
         s_opened |= (1u << port);
     } else {
         s_opened &= ~(1u << port);
@@ -75,54 +75,54 @@ void fw_uart_forget(void)
 
 uint32_t uart_port_count(void)
 {
-    const pf_uart_ops_t *ops = uart_ops();
+    const pf_uart_ops_t *ops = fw_uart_ops_get();
 
     return (ops != NULL) ? ops->count : 0u;
 }
 
 cm_err_t uart_open(uint32_t port, uint32_t baud)
 {
-    const pf_uart_ops_t *ops = uart_ops();
+    const pf_uart_ops_t *ops = fw_uart_ops_get();
 
     if (ops == NULL) {
         return CM_ERR_NOT_SUPPORTED;
     }
-    if (!port_valid(ops, port) || baud == 0u) {
+    if (!fw_port_valid(ops, port) || baud == 0u) {
         return CM_ERR_INVALID;
     }
-    if (opened(port)) {
+    if (fw_is_opened(port)) {
         return CM_ERR_BUSY; /* 没有引用计数：重复 open 就是调用方多开了一次 */
     }
     if (ops->open == NULL || ops->open(port, baud) != 0) {
         return CM_ERR_UNAVAILABLE;
     }
-    set_opened(port, true);
+    fw_set_opened(port, true);
     return CM_OK;
 }
 
 cm_err_t uart_close(uint32_t port)
 {
-    const pf_uart_ops_t *ops = uart_ops();
+    const pf_uart_ops_t *ops = fw_uart_ops_get();
 
     if (ops == NULL) {
         return CM_ERR_NOT_SUPPORTED;
     }
-    if (!port_valid(ops, port)) {
+    if (!fw_port_valid(ops, port)) {
         return CM_ERR_INVALID;
     }
-    if (!opened(port)) {
+    if (!fw_is_opened(port)) {
         return CM_ERR_STATE;
     }
     if (ops->close == NULL || ops->close(port) != 0) {
         return CM_ERR_UNAVAILABLE;
     }
-    set_opened(port, false);
+    fw_set_opened(port, false);
     return CM_OK;
 }
 
 cm_err_t uart_write(uint32_t port, const void *data, size_t len, size_t *out_written)
 {
-    const pf_uart_ops_t *ops = uart_ops();
+    const pf_uart_ops_t *ops = fw_uart_ops_get();
     const unsigned char *p = (const unsigned char *)data;
     size_t done = 0u;
     uint32_t last_progress = 0u;
@@ -133,13 +133,13 @@ cm_err_t uart_write(uint32_t port, const void *data, size_t len, size_t *out_wri
     if (ops == NULL) {
         return CM_ERR_NOT_SUPPORTED;
     }
-    if (data == NULL || !port_valid(ops, port)) {
+    if (data == NULL || !fw_port_valid(ops, port)) {
         return CM_ERR_INVALID;
     }
     if (fw_current_ctx() == NULL) {
         return CM_ERR_STATE; /* 伪阻塞点必须能被打断，所以必须在 App 任务里 */
     }
-    if (!opened(port)) {
+    if (!fw_is_opened(port)) {
         return CM_ERR_STATE;
     }
     if (len == 0u) {
@@ -188,7 +188,7 @@ cm_err_t uart_write(uint32_t port, const void *data, size_t len, size_t *out_wri
 
 cm_err_t uart_read(uint32_t port, void *buf, size_t cap, size_t *out_len, uint32_t timeout_ms)
 {
-    const pf_uart_ops_t *ops = uart_ops();
+    const pf_uart_ops_t *ops = fw_uart_ops_get();
     unsigned char *p = (unsigned char *)buf;
     size_t got = 0u;
     uint32_t start;
@@ -199,13 +199,13 @@ cm_err_t uart_read(uint32_t port, void *buf, size_t cap, size_t *out_len, uint32
     if (ops == NULL) {
         return CM_ERR_NOT_SUPPORTED;
     }
-    if (buf == NULL || cap == 0u || !port_valid(ops, port)) {
+    if (buf == NULL || cap == 0u || !fw_port_valid(ops, port)) {
         return CM_ERR_INVALID;
     }
     if (fw_current_ctx() == NULL) {
         return CM_ERR_STATE;
     }
-    if (!opened(port)) {
+    if (!fw_is_opened(port)) {
         return CM_ERR_STATE;
     }
 

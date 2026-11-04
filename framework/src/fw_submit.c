@@ -24,10 +24,15 @@ struct submit_slot {
     int used;
 };
 
+/* 提交表与它的锁。用途：按 key 暂存"已拷贝进来"的帧（D24），等服务任务来取。
+ * 谁写：`fw_svc_submit()` 填槽/覆盖、`fw_svc_submit_take()` 取走并释放；
+ *       `fw_submit_forget()` 清全部。
+ * 并发约定：所有读写都在 `s_lock` 之后——且只 try-lock（拿不到就 `CM_ERR_BUSY`），
+ *           因为这两个函数面向 App 任务，不能在这里等待。 */
 static struct submit_slot s_slot[FW_SUBMIT_SLOTS];
 static pf_mutex_t *s_lock;
 
-static cm_err_t lock_try(void)
+static cm_err_t fw_lock_try(void)
 {
     const pf_ops_t *ops = fw_ops();
 
@@ -40,7 +45,7 @@ static cm_err_t lock_try(void)
     return CM_OK;
 }
 
-static void unlock(void)
+static void fw_unlock(void)
 {
     const pf_ops_t *ops = fw_ops();
 
@@ -50,7 +55,7 @@ static void unlock(void)
 }
 
 /* 调用方必须已经持有锁。 */
-static void slot_clear(struct submit_slot *slot, int superseded)
+static void fw_slot_clear(struct submit_slot *slot, int superseded)
 {
     const pf_ops_t *ops = fw_ops();
 
@@ -119,7 +124,7 @@ cm_err_t fw_svc_submit(fw_svc_id_t svc, uint32_t key, const void *data, size_t l
         copy[i] = ((const unsigned char *)data)[i];
     }
 
-    rc = lock_try();
+    rc = fw_lock_try();
     if (rc != CM_OK) {
         ops->mem_free(copy); /* 进不去就不留半成品 */
         return rc;
@@ -128,7 +133,7 @@ cm_err_t fw_svc_submit(fw_svc_id_t svc, uint32_t key, const void *data, size_t l
     /* 同 key 覆盖：先把旧帧摘掉（释放它的拷贝并通知它"没被消费"）。 */
     for (i = 0; i < FW_SUBMIT_SLOTS; i++) {
         if (s_slot[i].used && s_slot[i].svc == svc && s_slot[i].key == key) {
-            slot_clear(&s_slot[i], 1);
+            fw_slot_clear(&s_slot[i], 1);
             slot = &s_slot[i];
             break;
         }
@@ -142,7 +147,7 @@ cm_err_t fw_svc_submit(fw_svc_id_t svc, uint32_t key, const void *data, size_t l
         }
     }
     if (slot == NULL) {
-        unlock();
+        fw_unlock();
         ops->mem_free(copy);
         /* **表满是 BUSY，不是 NOMEM**。八格全占着说明服务那边还没消费完，
          * 调用方该等一下再试；报 NOMEM 会让人去查一个并不存在的内存泄漏。
@@ -158,7 +163,7 @@ cm_err_t fw_svc_submit(fw_svc_id_t svc, uint32_t key, const void *data, size_t l
     slot->user = user;
     slot->used = 1;
 
-    unlock();
+    fw_unlock();
     return CM_OK;
 }
 
@@ -177,7 +182,7 @@ cm_err_t fw_svc_submit_take(fw_svc_id_t svc, uint32_t *out_key, void *buf, size_
         return CM_ERR_STATE;
     }
 
-    rc = lock_try();
+    rc = fw_lock_try();
     if (rc != CM_OK) {
         return rc;
     }
@@ -188,7 +193,7 @@ cm_err_t fw_svc_submit_take(fw_svc_id_t svc, uint32_t *out_key, void *buf, size_
         }
     }
     if (slot == NULL) {
-        unlock();
+        fw_unlock();
         return CM_ERR_NOT_SUPPORTED; /* 没有待取的帧 */
     }
     if (cap < slot->len) {
@@ -196,7 +201,7 @@ cm_err_t fw_svc_submit_take(fw_svc_id_t svc, uint32_t *out_key, void *buf, size_
         if (out_len != NULL) {
             *out_len = slot->len;
         }
-        unlock();
+        fw_unlock();
         return CM_ERR_INVALID;
     }
 
@@ -209,10 +214,10 @@ cm_err_t fw_svc_submit_take(fw_svc_id_t svc, uint32_t *out_key, void *buf, size_
     for (i = 0; i < (uint32_t)slot->len; i++) {
         ((unsigned char *)buf)[i] = slot->buf[i];
     }
-    /* 先拷出去再清：`slot_clear()` 会释放 `slot->buf` 并回调，回调里读到的是
+    /* 先拷出去再清：`fw_slot_clear()` 会释放 `slot->buf` 并回调，回调里读到的是
      * 调用方的缓冲区，不是框架的。 */
-    slot_clear(slot, 0);
-    unlock();
+    fw_slot_clear(slot, 0);
+    fw_unlock();
     return CM_OK;
 }
 
@@ -221,7 +226,7 @@ uint32_t fw_svc_submit_count(fw_svc_id_t svc)
     uint32_t i;
     uint32_t n = 0u;
 
-    if (svc == 0u || lock_try() != CM_OK) {
+    if (svc == 0u || fw_lock_try() != CM_OK) {
         return 0u;
     }
     for (i = 0; i < FW_SUBMIT_SLOTS; i++) {
@@ -229,7 +234,7 @@ uint32_t fw_svc_submit_count(fw_svc_id_t svc)
             n++;
         }
     }
-    unlock();
+    fw_unlock();
     return n;
 }
 
@@ -242,7 +247,7 @@ void fw_submit_forget(void)
      * 所以这里不拿锁：整机马上要回到空表，没有别的任务还该在提交。 */
     for (i = 0; i < FW_SUBMIT_SLOTS; i++) {
         if (s_slot[i].used) {
-            slot_clear(&s_slot[i], 1);
+            fw_slot_clear(&s_slot[i], 1);
         }
     }
     (void)ops;

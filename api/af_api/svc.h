@@ -36,13 +36,16 @@ typedef uint8_t fw_svc_id_t;
  * @param key        提交时用的 key，用于把回调对回那一帧
  * @param superseded 0 = 被服务取走了；1 = 还没被取就被同 key 的新帧顶掉了
  * @param user       提交时透传的上下文
- * 线程与中断：在**提交者自己**的上下文里回调（取走时是服务任务，覆盖时是提交者任务）；
- *             不要在回调里再做长时间阻塞，也不要再提交同一个 key。
+ * @return 无。
+ *         线程与中断：在**提交者自己**的上下文里回调（取走时是服务任务，覆盖时是提交者任务）；
+ *                     ISR 里不会回调。
+ *         注意事项：不要在回调里再做长时间阻塞，也不要再提交同一个 key（会覆盖自己）。
  */
 typedef void (*fw_submit_done_fn)(uint32_t key, int superseded, void *user);
 
 /** 把当前 App 注册成服务 `id` 的提供者。
  *
+ * @param id 服务号；0 与 >FW_SVC_MAX 都非法（0 是 `FW_SVC_NONE`）。
  * @return CM_OK 成功；CM_ERR_INVALID id 为 0 或越界；
  *         CM_ERR_STATE 不在 App 任务里 / 同一 owner 重复注册；
  *         CM_ERR_BUSY  该 id 已被别的、还活着的 owner 占着。
@@ -54,17 +57,20 @@ cm_err_t fw_svc_register(fw_svc_id_t id);
 
 /** 注销当前 App 对 `id` 的注册（主动交还，通常在 `exit()` 里调）。
  *
+ * @param id 服务号；必须是自己已经注册且仍然持有的那一个。
  * @return CM_OK 成功；CM_ERR_INVALID id 非法；CM_ERR_STATE 不在 App 任务里；
  *         CM_ERR_NOT_SUPPORTED 没有这个表项；CM_ERR_BUSY 表项属于别人。
- * 注意事项：不注销也可以——退出时会自动清 owner。主动注销的用处是"我已经确定不再提供服务，
+ *         线程与中断：只能在 App 任务里调用；中断里禁止。
+ *         注意事项：不注销也可以——退出时会自动清 owner。主动注销的用处是"我已经确定不再提供服务，
  *           别等我了"，此时表项被整体删除，查询回到 `CM_ERR_NOT_SUPPORTED`。
  */
 cm_err_t fw_svc_unregister(fw_svc_id_t id);
 
 /** 问一个服务现在能不能用（调用方在真正调用前查这一步）。
  *
+ * @param id 服务号。
  * @return 见文件头三个码的说明。
- * 线程与中断：任意任务可调；中断里允许（不取锁、不分配）。
+ *         线程与中断：任意任务可调；中断里允许（不取锁、不分配）。
  * 注意事项：查完到真正调用之间 owner 仍可能退出——这是**快照**不是租约。
  */
 cm_err_t fw_svc_ready(fw_svc_id_t id);
@@ -94,14 +100,19 @@ cm_err_t fw_svc_submit(fw_svc_id_t svc, uint32_t key, const void *data, size_t l
  * @param out_len 输出：实际（或所需）长度，可为 NULL
  * @return CM_OK；CM_ERR_NOT_SUPPORTED 队列空（没有待处理的帧，不是错误）；
  *         CM_ERR_INVALID 参数非法。
- * 线程与中断：服务任务里调用；中断里禁止。
+ *         线程与中断：服务任务里调用；中断里禁止。
+ *         注意事项：取走即释放框架那份拷贝（D24），所以之后再读 `buf` 拿到的是你自己的数据。
  */
 cm_err_t fw_svc_submit_take(fw_svc_id_t svc, uint32_t *out_key, void *buf, size_t cap,
                             size_t *out_len);
 
 /** 某个服务当前待处理的帧数（诊断用）。
  *
- * 线程与中断：任意任务可调；中断里允许。
+ * @param svc 服务号。
+ * @return 该服务名下还有几帧没被取走；服务不存在时返回 0。
+ *         线程与中断：任意任务可调；中断里允许（只读一个计数）。
+ *         注意事项：这是快照，只适合诊断与测试——**别拿它做同步**
+ *                   （数完可能就被别的任务取走了）。
  */
 uint32_t fw_svc_submit_count(fw_svc_id_t svc);
 

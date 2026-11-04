@@ -58,7 +58,7 @@ void fw_quota_release(fw_app_ctx_t *c, size_t bytes)
     (void)CM_ATOMIC_SUB_FETCH(&c->used_bytes, bytes, CM_MEM_RELAXED);
 }
 
-static void *alloc_impl(fw_app_ctx_t *c, size_t bytes, cm_err_t *out)
+static void *fw_alloc_impl(fw_app_ctx_t *c, size_t bytes, cm_err_t *out)
 {
     const pf_ops_t *ops = fw_ops();
     struct fw_alloc_hdr *hdr;
@@ -95,13 +95,13 @@ static void *alloc_impl(fw_app_ctx_t *c, size_t bytes, cm_err_t *out)
 
 void *fw_alloc(size_t bytes)
 {
-    return alloc_impl(fw_current_ctx(), bytes, NULL);
+    return fw_alloc_impl(fw_current_ctx(), bytes, NULL);
 }
 
 /** 内部版本：要错误码的地方（`res_acquire`）用这个，区分 QUOTA 与 NOMEM。 */
 void *fw_alloc_ex(fw_app_ctx_t *c, size_t bytes, cm_err_t *out)
 {
-    return alloc_impl(c, bytes, out);
+    return fw_alloc_impl(c, bytes, out);
 }
 
 void fw_free(void *p)

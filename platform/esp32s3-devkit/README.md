@@ -39,7 +39,7 @@
 
 ## 能力面：串口（第一项真实能力，D58）
 
-`pf_platform_boot()` 在 `fw_init()` 之前被框架调一次，注册串口 vtable；`esp_port_caps()`
+`pf_platform_boot()` 在 `fw_init()` 之前被框架调一次，注册串口 vtable；`pf_port_caps()`
 同时点亮 `PF_CAP_UART`（位 9）。
 
 | 项 | 值 |

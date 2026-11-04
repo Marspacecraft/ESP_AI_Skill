@@ -11,10 +11,10 @@
  * 超长输入如果截断写错一个字节，症状是"偶尔串口乱码"或"别的变量被改"，
  * 而不是崩溃——这类错误在现场几乎查不出来。
  */
+#include <string.h>
+
 #include "framework/include/fw_app.h"
 #include "tests/tinytest.h"
-
-#include <string.h>
 
 /**
  * @brief 调用 `fw_log`/`fw_logp` 的几种极端输入，确认都不越界。

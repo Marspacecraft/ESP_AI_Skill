@@ -22,12 +22,12 @@
 #include "framework/src/fw_internal.h"
 #include "platform/port/pf_cap.h"
 
-/** 注册表：下标与 `pf_cap.h` 的位号一一对应，见 `bit_index()`。 */
+/** 注册表：下标与 `pf_cap.h` 的位号一一对应，见 `fw_bit_index()`。 */
 static const void *s_cap_ops[PF_CAP_COUNT];
 
 /** 位号 → 表下标。0、多位组合、保留位一律 -1（与 `cap_available()` 同一条规矩：
  *  问"这一样有没有"的时候传两位，说明调用方想要的不是一个是非）。 */
-static int bit_index(uint32_t bit)
+static int fw_bit_index(uint32_t bit)
 {
     switch (bit) {
     case PF_CAP_DISPLAY:
@@ -57,7 +57,7 @@ static int bit_index(uint32_t bit)
 
 int fw_cap_register(uint32_t bit, const void *ops)
 {
-    int idx = bit_index(bit);
+    int idx = fw_bit_index(bit);
 
     if (idx < 0) {
         return -1;
@@ -74,7 +74,7 @@ int fw_cap_register(uint32_t bit, const void *ops)
 
 const void *fw_cap_ops(uint32_t bit)
 {
-    int idx = bit_index(bit);
+    int idx = fw_bit_index(bit);
 
     if (idx < 0) {
         return NULL;
@@ -89,7 +89,7 @@ bool fw_caps_reported(uint32_t bit)
     if (ops == NULL) {
         return false;
     }
-    if (bit_index(bit) < 0) {
+    if (fw_bit_index(bit) < 0) {
         return false;
     }
     return (ops->caps() & bit) != 0u;

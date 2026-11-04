@@ -97,7 +97,7 @@ static const fw_manifest_t s_man = {s_apps, 1u};
 
 static void reset_all(void)
 {
-    hf_uart_reset();
+    pf_hf_uart_reset();
     /* 表里每释放一个就少一个，所以"每次取第 0 个"而不是按下标遍历——
      * 边遍历边删会让下标跳过元素（旧仓库踩过：漏停一个任务，后面的用例活在脏世界里）。 */
     while (fw_live_count() > 0u) {
@@ -193,7 +193,7 @@ TT_CASE(write_moves_every_byte_and_reports_count)
     wait_done();
     TT_ASSERT_INT(CM_OK, g_rc);
     TT_ASSERT_INT(5, (int)g_n);
-    n = hf_uart_take(got, sizeof got);
+    n = pf_hf_uart_take(got, sizeof got);
     TT_ASSERT_INT(5, (int)n);
     TT_ASSERT_STR("hello", got);
 }
@@ -208,7 +208,7 @@ TT_CASE(read_times_out_when_quiet_and_returns_data_when_fed)
     TT_ASSERT_INT(CM_ERR_TIMEOUT, g_rc);
     TT_ASSERT_INT(0, (int)g_n);
 
-    hf_uart_feed("abc", 3u);
+    pf_hf_uart_feed("abc", 3u);
     run_probe(3);
     wait_done();
     TT_ASSERT_INT(CM_OK, g_rc);

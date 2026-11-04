@@ -33,19 +33,19 @@ static fw_app_ctx_t *s_live[FW_LIVE_MAX];
 static uint32_t s_live_lock;
 static int s_booted;
 
-static void live_lock(void)
+static void fw_live_lock(void)
 {
     while (CM_ATOMIC_EXCHANGE(&s_live_lock, 1u, CM_MEM_ACQ_REL) != 0u) {
         /* 管理器路径；临界区只有一次数组扫描。 */
     }
 }
 
-static void live_unlock(void)
+static void fw_live_unlock(void)
 {
     CM_ATOMIC_STORE(&s_live_lock, 0u, CM_MEM_RELEASE);
 }
 
-static fw_app_ctx_t *slot_at(uint32_t i)
+static fw_app_ctx_t *fw_slot_at(uint32_t i)
 {
     return CM_ATOMIC_LOAD(&s_live[i], CM_MEM_ACQUIRE);
 }
@@ -66,15 +66,15 @@ cm_err_t fw_live_add(fw_app_ctx_t *c)
         return CM_ERR_INVALID;
     }
 
-    live_lock();
+    fw_live_lock();
     for (i = 0; i < FW_LIVE_MAX; i++) {
-        if (slot_at(i) == NULL) {
+        if (fw_slot_at(i) == NULL) {
             CM_ATOMIC_STORE(&s_live[i], c, CM_MEM_RELEASE);
-            live_unlock();
+            fw_live_unlock();
             return CM_OK;
         }
     }
-    live_unlock();
+    fw_live_unlock();
     return CM_ERR_NOMEM;
 }
 
@@ -121,7 +121,7 @@ uint32_t fw_live_count(void)
     uint32_t n = 0u;
 
     for (i = 0; i < FW_LIVE_MAX; i++) {
-        if (slot_at(i) != NULL) {
+        if (fw_slot_at(i) != NULL) {
             n++;
         }
     }
@@ -134,7 +134,7 @@ fw_app_ctx_t *fw_live_at(uint32_t index)
     uint32_t seen = 0u;
 
     for (i = 0; i < FW_LIVE_MAX; i++) {
-        fw_app_ctx_t *c = slot_at(i);
+        fw_app_ctx_t *c = fw_slot_at(i);
 
         if (c == NULL) {
             continue;
@@ -155,24 +155,24 @@ void fw_live_remove(fw_app_ctx_t *c)
         return;
     }
 
-    live_lock();
+    fw_live_lock();
     for (i = 0; i < FW_LIVE_MAX; i++) {
-        if (slot_at(i) == c) {
+        if (fw_slot_at(i) == c) {
             CM_ATOMIC_STORE(&s_live[i], NULL, CM_MEM_RELEASE);
             break;
         }
     }
-    live_unlock();
+    fw_live_unlock();
 }
 
 void fw_boot_forget(void)
 {
     uint32_t i;
 
-    live_lock();
+    fw_live_lock();
     for (i = 0; i < FW_LIVE_MAX; i++) {
         CM_ATOMIC_STORE(&s_live[i], NULL, CM_MEM_RELEASE);
     }
-    live_unlock();
+    fw_live_unlock();
     s_booted = 0;
 }

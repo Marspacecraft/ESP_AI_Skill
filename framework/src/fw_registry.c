@@ -11,9 +11,14 @@
 /** 注册表容量：id 取 2..254，正好 253 个，不会出现"id 合法但表满"。 */
 #define FW_REG_MAX_APPS (APP_ID_MAX - APP_ID_MIN + 1u)
 
+/* 注册表本体。用途：保存平台表、清单里登记过的 App、以及"启动只能做一次"的闸门。
+ * 谁写：`fw_platform_bind()` 写 `s_ops`/`s_bound`；`fw_init()` 写 `s_apps`/`s_count`/
+ *       `s_initialized` 与 `s_used_ids`；`fw_reset()` 全部清回初值。
+ * 并发约定：只在启动阶段（`app_main()` 或嵌入方的单线程初始化）写，App 任务起来后
+ *           只读；`s_ops` 例外——它被 `fw_ops()` 在任意任务里读，读写都走 `CM_ATOMIC_*`。 */
 static const pf_ops_t *s_ops;
-static const app_desc_t *s_apps[FW_REG_MAX_APPS];
 static uint32_t s_count;
+static const app_desc_t *s_apps[FW_REG_MAX_APPS];
 static int s_bound;
 static int s_initialized;
 
@@ -25,7 +30,7 @@ static uint32_t s_used_count;
 /** 失败出口：把注册表清回空的初态，再返回错误码。
  *  为什么每个失败点都要过这里：中途 return 会留下"已插入一半"的表，而调用方
  *  只会看到 `CM_ERR_INVALID`，没有人会想到去 `fw_reset()`。 */
-static cm_err_t fail_and_clear(cm_err_t rc)
+static cm_err_t fw_fail_and_clear(cm_err_t rc)
 {
     s_count = 0u;
     s_used_count = 0u;
@@ -59,7 +64,7 @@ cm_err_t fw_platform_bind(const pf_ops_t *ops)
 
 /** 单条目合法性。顺序无所谓，但必须**全部**满足——少一条就是一个"能启动但
  *  行为未定义"的入口。 */
-static int app_desc_ok(const app_desc_t *d)
+static int fw_app_desc_ok(const app_desc_t *d)
 {
     if (d == NULL) {
         return 0;
@@ -106,25 +111,25 @@ cm_err_t fw_init(const fw_manifest_t *manifests, uint32_t count)
             continue; /* 空清单合法：某个模块这次没编进来而已 */
         }
         if (m->apps == NULL) {
-            return fail_and_clear(CM_ERR_INVALID); /* count>0 却没有数组 */
+            return fw_fail_and_clear(CM_ERR_INVALID); /* count>0 却没有数组 */
         }
         for (j = 0; j < m->count; j++) {
             const app_desc_t *d = m->apps[j];
             uint32_t k;
 
-            if (!app_desc_ok(d)) {
-                return fail_and_clear(CM_ERR_INVALID);
+            if (!fw_app_desc_ok(d)) {
+                return fw_fail_and_clear(CM_ERR_INVALID);
             }
             for (k = 0; k < s_count; k++) {
                 if (s_apps[k]->id == d->id) {
                     /* 重复 id 是最典型的合并事故：两份清单各自"很小心"地避开了
                      * 别人，但没人看全局。表现会是其中一个 App 永远起不来，
                      * 而在设备上看起来只是"这个功能没反应"。 */
-                    return fail_and_clear(CM_ERR_INVALID);
+                    return fw_fail_and_clear(CM_ERR_INVALID);
                 }
             }
             if (s_count >= FW_REG_MAX_APPS) {
-                return fail_and_clear(CM_ERR_INVALID); /* 理论不可达，防御式保留 */
+                return fw_fail_and_clear(CM_ERR_INVALID); /* 理论不可达，防御式保留 */
             }
             s_apps[s_count++] = d;
         }
@@ -132,7 +137,7 @@ cm_err_t fw_init(const fw_manifest_t *manifests, uint32_t count)
 
     if (s_count == 0u) {
         /* 所有清单都是空的：这不算"启动成功但没有 App"，算清单给错了。 */
-        return fail_and_clear(CM_ERR_INVALID);
+        return fw_fail_and_clear(CM_ERR_INVALID);
     }
 
     /* 清单里的 id 从此归它们所有：后面 `fw_alloc_id()` 不会再发同一个号码。 */
@@ -144,14 +149,14 @@ cm_err_t fw_init(const fw_manifest_t *manifests, uint32_t count)
     /* 提交表要一把锁（5.2）。放在这里建，而不是第一次提交时惰性建：
      * 惰性建会引入一个"谁先到谁建"的竞争，而 init 本来就是单线程的。 */
     if (fw_submit_init() != CM_OK) {
-        return fail_and_clear(CM_ERR_INVALID);
+        return fw_fail_and_clear(CM_ERR_INVALID);
     }
 
     s_initialized = 1;
     return CM_OK;
 }
 
-static int id_used(uint32_t id)
+static int fw_id_used(uint32_t id)
 {
     uint32_t i;
 
@@ -174,7 +179,7 @@ cm_err_t fw_alloc_id(uint32_t *out)
         return CM_ERR_NOMEM; /* 253 个号码发完了：重启次数到顶，该查为什么会一直在重启 */
     }
     for (id = APP_ID_MIN; id <= APP_ID_MAX; id++) {
-        if (!id_used(id)) {
+        if (!fw_id_used(id)) {
             *out = id;
             s_used_ids[s_used_count++] = id;
             return CM_OK;

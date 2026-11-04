@@ -17,12 +17,12 @@
 static fw_svc_id_t s_svc_id[FW_SVC_MAX];
 static fw_app_ctx_t *s_svc_owner[FW_SVC_MAX];
 
-static int id_valid(fw_svc_id_t id)
+static int fw_id_valid(fw_svc_id_t id)
 {
     return id != 0u && (uint32_t)id < FW_SVC_MAX;
 }
 
-static int find_slot(fw_svc_id_t id)
+static int fw_find_slot(fw_svc_id_t id)
 {
     uint32_t i;
 
@@ -34,7 +34,7 @@ static int find_slot(fw_svc_id_t id)
     return -1;
 }
 
-static int free_slot(void)
+static int fw_free_slot(void)
 {
     uint32_t i;
 
@@ -50,10 +50,10 @@ cm_err_t fw_svc_register_ctx(fw_svc_id_t id, fw_app_ctx_t *owner)
 {
     int slot;
 
-    if (!id_valid(id) || owner == NULL) {
+    if (!fw_id_valid(id) || owner == NULL) {
         return CM_ERR_INVALID;
     }
-    slot = find_slot(id);
+    slot = fw_find_slot(id);
     if (slot >= 0) {
         if (s_svc_owner[slot] == NULL) {
             /* 表项还在、owner 已经死了（上次崩过 / 重启中）：**认领**它。
@@ -63,7 +63,7 @@ cm_err_t fw_svc_register_ctx(fw_svc_id_t id, fw_app_ctx_t *owner)
         }
         return (s_svc_owner[slot] == owner) ? CM_ERR_STATE : CM_ERR_BUSY;
     }
-    slot = free_slot();
+    slot = fw_free_slot();
     if (slot < 0) {
         return CM_ERR_NOMEM; /* 表满：这是产品配置问题，不是暂时性失败 */
     }
@@ -76,9 +76,9 @@ cm_err_t fw_svc_register_ctx(fw_svc_id_t id, fw_app_ctx_t *owner)
 
 cm_err_t fw_svc_unregister_ctx(fw_svc_id_t id, fw_app_ctx_t *owner)
 {
-    int slot = find_slot(id);
+    int slot = fw_find_slot(id);
 
-    if (!id_valid(id)) {
+    if (!fw_id_valid(id)) {
         return CM_ERR_INVALID;
     }
     if (slot < 0) {
@@ -96,10 +96,10 @@ fw_app_ctx_t *fw_svc_owner(fw_svc_id_t id)
 {
     int slot;
 
-    if (!id_valid(id)) {
+    if (!fw_id_valid(id)) {
         return NULL;
     }
-    slot = find_slot(id);
+    slot = fw_find_slot(id);
     return (slot < 0) ? NULL : CM_ATOMIC_LOAD(&s_svc_owner[slot], CM_MEM_ACQUIRE);
 }
 
@@ -107,10 +107,10 @@ cm_err_t fw_svc_ready(fw_svc_id_t id)
 {
     fw_app_ctx_t *owner;
 
-    if (!id_valid(id)) {
+    if (!fw_id_valid(id)) {
         return CM_ERR_INVALID;
     }
-    if (find_slot(id) < 0) {
+    if (fw_find_slot(id) < 0) {
         return CM_ERR_NOT_SUPPORTED; /* 从来没人注册：这块板/这个产品没这能力 */
     }
     owner = fw_svc_owner(id);

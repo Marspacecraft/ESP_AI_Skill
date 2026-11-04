@@ -21,7 +21,7 @@
  *
  * 这是整个文件里唯一的边界检查：App 传进来的地址必须落在自己的
  * `slots[]` 里，否则它就能往别人的上下文里写句柄。 */
-static int slot_index(const fw_app_ctx_t *c, const void *slot)
+static int fw_slot_index(const fw_app_ctx_t *c, const void *slot)
 {
     const char *base = (const char *)&c->pub.slots[0];
     const char *p = (const char *)slot;
@@ -41,7 +41,7 @@ static int slot_index(const fw_app_ctx_t *c, const void *slot)
     return (int)off;
 }
 
-static void slot_free(fw_app_ctx_t *c, int i)
+static void fw_slot_free(fw_app_ctx_t *c, int i)
 {
     const pf_ops_t *ops = fw_ops();
 
@@ -55,7 +55,7 @@ static void slot_free(fw_app_ctx_t *c, int i)
     c->pub.slots[i] = NULL;
 }
 
-static void slot_free_all(fw_app_ctx_t *c, int app_life_only)
+static void fw_slot_free_all(fw_app_ctx_t *c, int app_life_only)
 {
     uint32_t i;
 
@@ -66,7 +66,7 @@ static void slot_free_all(fw_app_ctx_t *c, int app_life_only)
         if (app_life_only && c->slot_life[i] != RES_LIFE_APP) {
             continue; /* 借来的东西：不是我们的，别替他收 */
         }
-        slot_free(c, (int)i);
+        fw_slot_free(c, (int)i);
         c->slots_released++;
     }
 }
@@ -87,7 +87,7 @@ cm_err_t res_acquire(void *slot, res_kind_e kind, size_t bytes, res_life_e life)
     if (life != RES_LIFE_APP && life != RES_LIFE_BOOT) {
         return CM_ERR_INVALID;
     }
-    i = slot_index(c, slot);
+    i = fw_slot_index(c, slot);
     if (i < 0) {
         return CM_ERR_INVALID; /* 不是本 App 的槽位 */
     }
@@ -127,11 +127,11 @@ void res_release(void *slot)
     if (c == NULL || slot == NULL) {
         return;
     }
-    i = slot_index(c, slot);
+    i = fw_slot_index(c, slot);
     if (i < 0) {
         return;
     }
-    slot_free(c, i); /* 空槽位时是 no-op：重复调用安全 */
+    fw_slot_free(c, i); /* 空槽位时是 no-op：重复调用安全 */
 }
 
 void fw_res_release_all(fw_app_ctx_t *c)
@@ -139,7 +139,7 @@ void fw_res_release_all(fw_app_ctx_t *c)
     if (c == NULL) {
         return;
     }
-    slot_free_all(c, 1);
+    fw_slot_free_all(c, 1);
 }
 
 uint32_t fw_app_slots_released(const fw_app_ctx_t *c)

@@ -8,11 +8,11 @@
  *      所以用栈上的定长缓冲，超出就截断。
  *   2. **不递归**。平台实现里不许再调 `fw_log()`；这里也不调用任何会打日志的框架函数。
  */
-#include "framework/include/fw_app.h"
-#include "platform/port/pf_ops.h"
-
 #include <stdarg.h>
 #include <stdio.h>
+
+#include "framework/include/fw_app.h"
+#include "platform/port/pf_ops.h"
 
 /** 一行日志的缓冲上限。真机上串口一行 256 字节已经很奢侈了。 */
 #define FW_LOG_BUF 256u

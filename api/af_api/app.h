@@ -57,15 +57,35 @@ typedef struct app_ctx app_ctx_t;
 
 /* ── 三个回调 ──────────────────────────────────────────────────── */
 
-/** 初始化。返回 CM_OK 才进 RUNNING；返回任何非 CM_OK 都进 FAILED。 */
+/** 初始化。返回 CM_OK 才进 RUNNING；返回任何非 CM_OK 都进 FAILED。
+ *
+ * @param ctx 本实例的上下文。
+ * @return `CM_OK` 继续进 RUNNING；其余任何值都进 FAILED，随后走退出路径。
+ *         线程与中断：跑在这个 App 自己的任务里（刚创建），此时状态是 `INIT`。
+ *         注意事项：**只调一次**；在里面问"我起来了吗"没有答案（状态还是 INIT）。
+ *                   失败不需要自己清理，`exit()` 仍会被调用一次。
+ */
 typedef cm_err_t (*app_init_fn)(app_ctx_t *ctx);
 
 /** 退出清理。**在任何结束路径上恰好调用一次**（含 FAILED）。
- *  这里可以调阻塞接口（框架已先清掉取消位），但别再写清理之外的事。 */
+ *
+ * @param ctx 本实例的上下文。
+ * @return 无。
+ *         线程与中断：跑在即将结束的那个 App 任务里；状态此时是 `STOPPING`。
+ *         注意事项：这里可以调阻塞接口（框架已先清掉取消位），但别再写清理之外的事；
+ *                   框架保证不会第二次进来。
+ */
 typedef void (*app_exit_fn)(app_ctx_t *ctx);
 
 /** 主任务。强制形态 `for(;;){ do_work(); fw_delay_block(N); }`。
- *  返回即表示"这个 App 自己认为自己挂了"→ FAILED。 */
+ *  返回即表示"这个 App 自己认为自己挂了"→ FAILED。
+ *
+ * @param ctx 本实例的上下文。
+ * @return 无（正常路径永不返回；返回会被当成失败）。
+ *         线程与中断：本 App 自己的任务；状态为 `RUNNING`。
+ *         注意事项：`fw_delay_block()` 之后的代码可能永远不执行（取消位命中即退出），
+ *                   所以清理只能写在 `exit()` 里，不能写在这里的收尾。
+ */
 typedef void (*app_task_fn)(app_ctx_t *ctx);
 
 /* ── 描述体与清单 ──────────────────────────────────────────────── */
@@ -149,7 +169,9 @@ void fw_delay_block(uint32_t ms);
 void *fw_alloc(size_t bytes);
 
 /** 归还 `fw_alloc` 的指针；NULL 无操作。
- *  线程与中断：任意任务可调；ISR 里禁止。
+ *  @param p `fw_alloc()` 的返回值，可为 NULL（无操作）。
+ *  @return 无。
+ *         线程与中断：任意任务可调；ISR 里禁止。
  *  注意事项：这里只还自己拿的指针；`ctx->slots[]` 里的资源由框架在退出路径
  *           上按 `res_life_e` 回收（`RES_LIFE_APP` 收、`RES_LIFE_BOOT` 不收），
  *           不要在这里手动重复还。 */

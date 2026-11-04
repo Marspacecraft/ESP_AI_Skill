@@ -83,6 +83,7 @@ fw_app_ctx_t *fw_app_ctx_new_with_id(const app_desc_t *desc, uint32_t id);
 /** 释放上下文。**只能在任务已经结束之后调**（任务还在跑就释放 = UAF）。
  *
  * @param c `fw_app_ctx_new*()` 的产物，可为 NULL（无操作）。
+ * @return 无。
  *         线程与中断：管理器任务里；ISR 禁止。
  *         注意事项：**释放会自动把它从活实例表里摘掉**，所以漏写 `fw_live_remove()`
  *                   也不会留下悬垂指针。想"先认领、再释放"两步走仍然可以：显式
@@ -105,6 +106,7 @@ cm_err_t fw_app_start(fw_app_ctx_t *c);
 /** 置取消位：让这个实例在**下一个让出点**走退出路径。
  *
  * @param c 目标实例；NULL 时无操作。
+ * @return 无。
  *         线程与中断：可以跨任务；ISR 里能调（只写一个整数），但不在 v1 承诺范围内。
  *         注意事项：它只是"请求"，不是"立刻停"。目标可能正卡在一段不含让出点的
  *                   纯计算里——那种情况框架既发现不了也停不掉（设计边界）。
@@ -118,25 +120,40 @@ void fw_app_request_cancel(fw_app_ctx_t *c);
  *
  * 为什么需要它：`fw_app_ctx_t` 是不透明的，管理器看得见指针却读不到 id，
  * 而日志、服务归属、去重判断全都要 id。只暴露这一个读值函数，不暴露布局。
- * 注意事项：id 在实例生命周期内不变；重启是**新实例、新 id**（D18）。 */
+ * @param c 目标实例；NULL 时返回 `APP_ID_INVALID`。
+ * @return 实例 id ∈ `[2,254]`；`c` 为 NULL 时返回 `APP_ID_INVALID`（0）。
+ *         线程与中断：任意任务可读（只读一个整数）；ISR 里也可以，但不在 v1 承诺范围内。
+ *         注意事项：id 在实例生命周期内不变；重启是**新实例、新 id**（D18）。 */
 uint32_t fw_app_id(const fw_app_ctx_t *c);
 
-/** 当前状态。`c` 为 NULL 时返回 `FW_APP_STATE_EMPTY`。
- *  注意事项：这是某一瞬间的快照，下一秒可能已经变了。 */
+/** 当前状态。
+ *  @param c 目标实例；NULL 时返回 `FW_APP_STATE_EMPTY`。
+ *  @return 该瞬间的状态枚举。
+ *         线程与中断：任意任务可读；ISR 里也可以（一次原子读）。
+ *         注意事项：这是某一瞬间的快照，下一秒可能已经变了。 */
 fw_app_state_e fw_app_state(const fw_app_ctx_t *c);
 
 /** `exit()` 至今被调用过几次。正常是 1（含启动失败）。
- *  @param c 目标实例；NULL 时返回 0。 */
+ *  @param c 目标实例；NULL 时返回 0。
+ *  @return 调用次数（0 或 1；框架保证不会到 2）。
+ *         线程与中断：任意任务可读；ISR 里也可以（一次原子读）。
+ *         注意事项：读到 1 只说明 `exit()` 已经开始跑，不说明它跑完了——
+ *                   要等结束，看 `fw_app_state()` 是否到了 STOPPED/FAILED。 */
 uint32_t fw_app_exit_calls(const fw_app_ctx_t *c);
 
 /** **所有 `fw_app_start()` 拉起、且尚未被摘表**的实例个数。
  *  包含已经进 STOPPED/FAILED 的——它们在管理器回收之前一直留在表里（D53），
- *  这样"它停了/它崩了"才是可观测的。 */
+ *  这样"它停了/它崩了"才是可观测的。
+ *  @return 表里当前的项数（含死实例）。
+ *         线程与中断：任意任务可读（无锁扫描）；ISR 禁止（要扫整张表）。
+ *         注意事项：这是快照；数完之后表可能已经变了，别拿它当循环上界用第二次。 */
 uint32_t fw_live_count(void);
 
 /** 第 `index` 个活实例的上下文（按启动顺序，跳过已摘表的空洞）；越界返回 NULL。
  *
  * @param index 从 0 开始。
+ * @return 该位置的上下文；越界返回 NULL。
+ *         线程与中断：管理器任务里；ISR 禁止。
  *         注意事项：这是某一瞬间的快照，别的任务摘表会让后面的项前移；
  *                   遍历时以 `fw_live_count()` 为准，别缓存下标。
  */
@@ -145,6 +162,8 @@ fw_app_ctx_t *fw_live_at(uint32_t index);
 /** 把一个实例从活实例表里摘掉（**不释放它**，见 D19）。
  *
  * @param c  `fw_live_at()` 拿到的指针；不在表里时无操作。
+ * @return 无。
+ *         线程与中断：管理器任务里；ISR 禁止。
  *         注意事项：**先 `fw_live_remove()` 再 `fw_app_ctx_free()`**——顺序反了
  *                   就会在表里留下一根悬垂指针，`fw_live_at()` 之后读到的是野内存。
  *                   只能对已经进 STOPPED/FAILED 的实例调用；还在跑就摘表，等于
@@ -156,12 +175,20 @@ void fw_live_remove(fw_app_ctx_t *c);
 
 /* ── 清单里有什么（管理器要知道"可以起谁"）────────────────────── */
 
-/** `fw_init()` 合并进来的描述体个数（等于所有清单条目之和）。 */
+/** `fw_init()` 合并进来的描述体个数（等于所有清单条目之和）。
+ *
+ * @return 登记在册的描述体个数；`fw_init()` 之前恒为 0。
+ *         线程与中断：任意任务可读；ISR 禁止（与 `fw_live_count()` 一样要扫表）。
+ *         注意事项：这是"清单里有几个"，不是"起来了几个"——后者看 `fw_live_count()`。
+ */
 uint32_t fw_app_count(void);
 
 /** 第 `index` 个描述体；越界返回 NULL。
- *  注意事项：描述体是静态常量，指向它们没有所有权问题；但"清单里有"不等于
- *            "已经起来"——那要看 `fw_live_count()`。 */
+ * @param index 从 0 开始。
+ * @return 该位置的描述体；越界返回 NULL。
+ *         线程与中断：管理器任务里；ISR 禁止。
+ *         注意事项：描述体是静态常量，指向它们没有所有权问题；但"清单里有"不等于
+ *                    "已经起来"——那要看 `fw_live_count()`。 */
 const app_desc_t *fw_app_at(uint32_t index);
 
 #ifdef __cplusplus

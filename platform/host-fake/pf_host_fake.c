@@ -47,51 +47,51 @@
  * 每块分配前面放 16 字节头（magic + 字节数），free 时校验 magic。
  * 目的是让"重复释放 / 释放别人的指针"在 host 上**当场炸**，
  * 而不是在真机上偶发一次看不懂的崩溃。 */
-#define HF_HDR_MAGIC 0x48464D45u /* "HFME" */
+#define PF_HF_HDR_MAGIC 0x48464D45u /* "HFME" */
 
 typedef struct {
     uint32_t magic;
     uint32_t pad;
     size_t bytes;
-} hf_hdr_t;
+} pf_hf_hdr_t;
 
-static void hf_die(const char *why, const void *p)
+static void pf_hf_die(const char *why, const void *p)
 {
     fprintf(stderr, "pf_host_fake: %s (%p)\n", why, p);
     fflush(stderr);
     abort();
 }
 
-static void *hf_mem_alloc(size_t bytes)
+static void *pf_hf_mem_alloc(size_t bytes)
 {
     if (bytes == 0) {
         return NULL;
     }
-    hf_hdr_t *h = malloc(sizeof *h + bytes);
+    pf_hf_hdr_t *h = malloc(sizeof *h + bytes);
     if (h == NULL) {
         return NULL;
     }
-    h->magic = HF_HDR_MAGIC;
+    h->magic = PF_HF_HDR_MAGIC;
     h->pad = 0;
     h->bytes = bytes;
     return (char *)h + sizeof *h;
 }
 
-static void hf_mem_free(void *p)
+static void pf_hf_mem_free(void *p)
 {
     if (p == NULL) {
         return; /* 契约：free(NULL) 必须无操作 */
     }
-    hf_hdr_t *h = (hf_hdr_t *)((char *)p - sizeof(hf_hdr_t));
-    if (h->magic != HF_HDR_MAGIC) {
-        hf_die("释放了一个不是 mem_alloc 给的指针（或重复释放）", p);
+    pf_hf_hdr_t *h = (pf_hf_hdr_t *)((char *)p - sizeof(pf_hf_hdr_t));
+    if (h->magic != PF_HF_HDR_MAGIC) {
+        pf_hf_die("释放了一个不是 mem_alloc 给的指针（或重复释放）", p);
     }
     h->magic = 0;
     free(h);
 }
 
 /* ── 时间 ────────────────────────────────────────────────────────── */
-static uint32_t hf_clock_ms(void)
+static uint32_t pf_hf_clock_ms(void)
 {
     struct timespec ts;
     if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0) {
@@ -101,7 +101,7 @@ static uint32_t hf_clock_ms(void)
     return (uint32_t)((uint64_t)ts.tv_sec * 1000u + (uint64_t)ts.tv_nsec / 1000000u);
 }
 
-static void hf_sleep_ms(uint32_t ms)
+static void pf_hf_sleep_ms(uint32_t ms)
 {
     if (ms == 0) {
         sched_yield(); /* 契约：0 表示让出 CPU 一次，不保证让给谁 */
@@ -122,7 +122,7 @@ struct pf_mutex {
     pthread_mutex_t m;
 };
 
-static pf_mutex_t *hf_mutex_create(void)
+static pf_mutex_t *pf_hf_mutex_create(void)
 {
     pf_mutex_t *mx = calloc(1, sizeof *mx);
     if (mx == NULL) {
@@ -135,7 +135,7 @@ static pf_mutex_t *hf_mutex_create(void)
     return mx;
 }
 
-static int hf_mutex_take(pf_mutex_t *mx, uint32_t timeout_ms)
+static int pf_hf_mutex_take(pf_mutex_t *mx, uint32_t timeout_ms)
 {
     if (mx == NULL) {
         return -1; /* 契约：NULL 不崩溃，按"没拿到"处理 */
@@ -149,19 +149,19 @@ static int hf_mutex_take(pf_mutex_t *mx, uint32_t timeout_ms)
 
     /* 相对超时：从**进入函数**那一刻起算。macOS 没有 pthread_mutex_timedlock，
      * 所以这里用"trylock + 睡 1ms"轮询。语义正确、精度 1ms、期间真的让出 CPU。 */
-    uint32_t start = hf_clock_ms();
+    uint32_t start = pf_hf_clock_ms();
     for (;;) {
-        if ((uint32_t)(hf_clock_ms() - start) >= timeout_ms) {
+        if ((uint32_t)(pf_hf_clock_ms() - start) >= timeout_ms) {
             return -1;
         }
-        hf_sleep_ms(1);
+        pf_hf_sleep_ms(1);
         if (pthread_mutex_trylock(&mx->m) == 0) {
             return 0;
         }
     }
 }
 
-static void hf_mutex_give(pf_mutex_t *mx)
+static void pf_hf_mutex_give(pf_mutex_t *mx)
 {
     if (mx == NULL) {
         return; /* 契约：NULL 无操作 */
@@ -181,7 +181,7 @@ struct pf_task {
 #define PTHREAD_STACK_MIN 16384
 #endif
 
-static void hf_set_current_name(const char *name)
+static void pf_hf_set_current_name(const char *name)
 {
     if (name == NULL) {
         return;
@@ -196,15 +196,15 @@ static void hf_set_current_name(const char *name)
 #endif
 }
 
-static void *hf_task_trampoline(void *arg)
+static void *pf_hf_task_trampoline(void *arg)
 {
     struct pf_task *t = arg;
-    hf_set_current_name(t->desc.name);
+    pf_hf_set_current_name(t->desc.name);
     t->desc.entry(t->desc.arg);
     return NULL; /* 契约：entry 返回等于任务结束 */
 }
 
-static pf_task_t *hf_task_create(const pf_task_desc_t *desc)
+static pf_task_t *pf_hf_task_create(const pf_task_desc_t *desc)
 {
     if (desc == NULL || desc->entry == NULL) {
         return NULL;
@@ -238,7 +238,7 @@ static pf_task_t *hf_task_create(const pf_task_desc_t *desc)
         return NULL;
     }
 
-    int rc = pthread_create(&t->th, &attr, hf_task_trampoline, t);
+    int rc = pthread_create(&t->th, &attr, pf_hf_task_trampoline, t);
     pthread_attr_destroy(&attr);
     if (rc != 0) {
         free(t);
@@ -251,29 +251,35 @@ static pf_task_t *hf_task_create(const pf_task_desc_t *desc)
     return t;
 }
 
-static void hf_task_exit_current(void)
+static void pf_hf_task_exit_current(void)
 {
     pthread_exit(NULL); /* 契约：不返回 */
 }
 
 /* ── 假串口（PF_CAP_UART 的参考实现） ────────────────────────────────
  * 它不碰任何真实设备：写进去的字节进 `s_uart_tx` 记账缓冲，读出来的字节来自
- * 测试用 `hf_uart_feed()` 塞进去的 `s_uart_rx`。这样 host 上就能验：
- *   - "写了多少字节、内容对不对"（`hf_uart_take()`）
- *   - "读的切片与超时行为"（`hf_uart_feed()` + `uart_read()`）
+ * 测试用 `pf_hf_uart_feed()` 塞进去的 `s_uart_rx`。这样 host 上就能验：
+ *   - "写了多少字节、内容对不对"（`pf_hf_uart_take()`）
+ *   - "读的切片与超时行为"（`pf_hf_uart_feed()` + `uart_read()`）
  * 真机上这两件事只能验"没崩、返回码对"——对端有没有收到，要另一个人看。
  */
-#define HF_UART_RX_CAP 256u
-#define HF_UART_TX_CAP 4096u
+#define PF_HF_UART_RX_CAP 256u
+#define PF_HF_UART_TX_CAP 4096u
 
+/* 假串口的两个单向缓冲与打开状态。用途：让 host 上能验"写了多少、读到什么、
+ * 切片与超时是否按契约走"，而不需要真硬件。
+ * 谁写：`s_uart_rx` 由测试钩子 `pf_hf_uart_feed()` 写、被 `pf_hf_uart_read()` 消费；
+ *       `s_uart_tx` 由 `pf_hf_uart_write()` 写、被 `pf_hf_uart_take()` 取走；
+ *       `s_uart_opened` 由 open/close 写。
+ * 并发约定：全部在 `s_uart_lock` 之内访问（测试主任务与 App 任务会同时碰它们）。 */
 static pthread_mutex_t s_uart_lock = PTHREAD_MUTEX_INITIALIZER;
-static unsigned char s_uart_rx[HF_UART_RX_CAP];
+static unsigned char s_uart_rx[PF_HF_UART_RX_CAP];
 static size_t s_uart_rx_len;
-static unsigned char s_uart_tx[HF_UART_TX_CAP];
+static unsigned char s_uart_tx[PF_HF_UART_TX_CAP];
 static size_t s_uart_tx_len;
 static int s_uart_opened;
 
-static int hf_uart_open(uint32_t port, uint32_t baud)
+static int pf_hf_uart_open(uint32_t port, uint32_t baud)
 {
     int rc = -1;
 
@@ -289,7 +295,7 @@ static int hf_uart_open(uint32_t port, uint32_t baud)
     return rc;
 }
 
-static int hf_uart_close(uint32_t port)
+static int pf_hf_uart_close(uint32_t port)
 {
     int rc = -1;
 
@@ -305,7 +311,7 @@ static int hf_uart_close(uint32_t port)
     return rc;
 }
 
-static int hf_uart_write(uint32_t port, const void *buf, size_t len, uint32_t timeout_ms)
+static int pf_hf_uart_write(uint32_t port, const void *buf, size_t len, uint32_t timeout_ms)
 {
     size_t room;
     size_t n;
@@ -319,7 +325,7 @@ static int hf_uart_write(uint32_t port, const void *buf, size_t len, uint32_t ti
         pthread_mutex_unlock(&s_uart_lock);
         return -1;
     }
-    room = HF_UART_TX_CAP - s_uart_tx_len;
+    room = PF_HF_UART_TX_CAP - s_uart_tx_len;
     n = (len < room) ? len : room;
     if (n > 0u) {
         memcpy(&s_uart_tx[s_uart_tx_len], buf, n);
@@ -329,7 +335,7 @@ static int hf_uart_write(uint32_t port, const void *buf, size_t len, uint32_t ti
     return (int)n; /* 满了返回 0：模拟"发送缓冲满、等一会儿再来" */
 }
 
-static int hf_uart_read(uint32_t port, void *buf, size_t cap, uint32_t timeout_ms)
+static int pf_hf_uart_read(uint32_t port, void *buf, size_t cap, uint32_t timeout_ms)
 {
     size_t n;
 
@@ -355,13 +361,13 @@ static int hf_uart_read(uint32_t port, void *buf, size_t cap, uint32_t timeout_m
 static const pf_uart_ops_t hf_uart_ops = {
     .version = PF_UART_OPS_VERSION,
     .count = 1u,
-    .open = hf_uart_open,
-    .close = hf_uart_close,
-    .write = hf_uart_write,
-    .read = hf_uart_read,
+    .open = pf_hf_uart_open,
+    .close = pf_hf_uart_close,
+    .write = pf_hf_uart_write,
+    .read = pf_hf_uart_read,
 };
 
-void hf_uart_feed(const void *data, size_t len)
+void pf_hf_uart_feed(const void *data, size_t len)
 {
     size_t room;
 
@@ -369,7 +375,7 @@ void hf_uart_feed(const void *data, size_t len)
         return;
     }
     pthread_mutex_lock(&s_uart_lock);
-    room = HF_UART_RX_CAP - s_uart_rx_len;
+    room = PF_HF_UART_RX_CAP - s_uart_rx_len;
     if (len > room) {
         len = room;
     }
@@ -378,7 +384,7 @@ void hf_uart_feed(const void *data, size_t len)
     pthread_mutex_unlock(&s_uart_lock);
 }
 
-size_t hf_uart_take(void *buf, size_t cap)
+size_t pf_hf_uart_take(void *buf, size_t cap)
 {
     size_t n;
 
@@ -396,7 +402,7 @@ size_t hf_uart_take(void *buf, size_t cap)
     return n;
 }
 
-void hf_uart_reset(void)
+void pf_hf_uart_reset(void)
 {
     pthread_mutex_lock(&s_uart_lock);
     s_uart_opened = 0;
@@ -406,7 +412,7 @@ void hf_uart_reset(void)
 }
 
 /* ── 能力与表 ────────────────────────────────────────────────────── */
-static uint32_t hf_caps(void)
+static uint32_t pf_hf_caps(void)
 {
     return PF_CAP_UART; /* 这块"板"只有假串口；其他能力由测试自己往注册表里塞 */
 }
@@ -420,16 +426,16 @@ void pf_platform_boot(void)
 
 const pf_ops_t pf_host_fake_ops = {
     .version = PF_OPS_VERSION,
-    .caps = hf_caps,
-    .mem_alloc = hf_mem_alloc,
-    .mem_free = hf_mem_free,
-    .clock_ms = hf_clock_ms,
-    .sleep_ms = hf_sleep_ms,
-    .mutex_create = hf_mutex_create,
-    .mutex_take = hf_mutex_take,
-    .mutex_give = hf_mutex_give,
-    .task_create = hf_task_create,
-    .task_exit_current = hf_task_exit_current,
+    .caps = pf_hf_caps,
+    .mem_alloc = pf_hf_mem_alloc,
+    .mem_free = pf_hf_mem_free,
+    .clock_ms = pf_hf_clock_ms,
+    .sleep_ms = pf_hf_sleep_ms,
+    .mutex_create = pf_hf_mutex_create,
+    .mutex_take = pf_hf_mutex_take,
+    .mutex_give = pf_hf_mutex_give,
+    .task_create = pf_hf_task_create,
+    .task_exit_current = pf_hf_task_exit_current,
 };
 
 const pf_ops_t *pf_host_fake_ops_get(void)

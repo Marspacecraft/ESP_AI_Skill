@@ -11,6 +11,13 @@
  * FreeRTOS 的 tick、抢占与 20 ms 切片。**"host 通过"不能推"板上通过"**，
  * 所以同一份断言要在两块地方各跑一遍。
  */
+#if defined(ESP_PLATFORM)
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#else
+#include <time.h>
+#endif
+
 #include "tinytest.h"
 
 #include "api/af_api/cap.h"
@@ -19,13 +26,6 @@
 #include "framework/include/fw_embed.h"
 #include "framework/src/fw_internal.h"
 #include "platform/port/pf_ops.h"
-
-#if defined(ESP_PLATFORM)
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#else
-#include <time.h>
-#endif
 
 /* ------------------------------------------------------------------ */
 /* 观测点：跨任务读写，全部走原子（否则 TSan 与真机都可能给出假绿）        */

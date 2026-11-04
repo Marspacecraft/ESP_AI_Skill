@@ -15,7 +15,7 @@
 static void stop_all(void)
 {
     while (fw_live_count() > 0u) {
-        struct fw_app_ctx *c = fw_live_at(0u);
+        fw_app_ctx_t *c = fw_live_at(0u);
 
         fw_app_request_cancel(c);
         for (int i = 0; i < 200; i++) {

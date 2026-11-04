@@ -9,7 +9,7 @@
  */
 #include "framework/src/fw_internal.h"
 
-void fw_heartbeat_touch(struct fw_app_ctx *c)
+void fw_heartbeat_touch(fw_app_ctx_t *c)
 {
     if (c == NULL) {
         return;
@@ -20,7 +20,7 @@ void fw_heartbeat_touch(struct fw_app_ctx *c)
 
 void fw_app_heartbeat(const struct app_ctx *ctx, uint32_t *seq, uint32_t *age_ms)
 {
-    struct fw_app_ctx *c;
+    fw_app_ctx_t *c;
     uint32_t last;
     uint32_t base;
 
@@ -33,7 +33,7 @@ void fw_app_heartbeat(const struct app_ctx *ctx, uint32_t *seq, uint32_t *age_ms
     if (ctx == NULL) {
         return;
     }
-    c = (struct fw_app_ctx *)ctx->fw;
+    c = (fw_app_ctx_t *)ctx->fw;
     if (c == NULL) {
         return;
     }
@@ -49,13 +49,13 @@ void fw_app_heartbeat(const struct app_ctx *ctx, uint32_t *seq, uint32_t *age_ms
 
 int fw_app_is_stalled(const struct app_ctx *ctx, uint32_t stale_ms)
 {
-    struct fw_app_ctx *c;
+    fw_app_ctx_t *c;
     uint32_t last;
 
     if (ctx == NULL || stale_ms == 0u) {
         return 0;
     }
-    c = (struct fw_app_ctx *)ctx->fw;
+    c = (fw_app_ctx_t *)ctx->fw;
     if (c == NULL || fw_app_state(c) != FW_APP_STATE_RUNNING) {
         return 0; /* 没在跑就谈不上"卡住"：EMPTY/INIT 还没开始喂 */
     }

@@ -10,7 +10,7 @@
 #include "framework/src/fw_internal.h"
 #include "platform/host-fake/pf_host_fake.h"
 
-static struct fw_app_ctx *g_ctx;
+static fw_app_ctx_t *g_ctx;
 static int g_acquired;      /* init 里成功 acquire 的次数 */
 static int g_exit_saw_slot; /* exit() 里 slots[0] 还非空吗 */
 static int g_probe_ok;      /* 槽位里的内存真的可读写 */
@@ -119,7 +119,7 @@ static const app_desc_t reuse_desc = {
 static void stop_all(void)
 {
     while (fw_live_count() > 0u) {
-        struct fw_app_ctx *c = fw_live_at(0u);
+        fw_app_ctx_t *c = fw_live_at(0u);
 
         fw_app_request_cancel(c);
         for (int i = 0; i < 400; i++) {
@@ -147,9 +147,9 @@ static void setup(void)
     TT_ASSERT_INT(CM_OK, fw_init(&apps_manifest, 1u));
 }
 
-static struct fw_app_ctx *start(const app_desc_t *d, uint32_t id)
+static fw_app_ctx_t *start(const app_desc_t *d, uint32_t id)
 {
-    struct fw_app_ctx *c = fw_app_ctx_new_with_id(d, id);
+    fw_app_ctx_t *c = fw_app_ctx_new_with_id(d, id);
 
     if (c == NULL || fw_app_start(c) != CM_OK) {
         return NULL;

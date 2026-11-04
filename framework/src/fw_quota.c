@@ -26,13 +26,13 @@
  * 整数倍（64 位上是 24 字节，32 位上是 16 字节），用户指针因此总是对齐的。
  */
 struct fw_alloc_hdr {
-    size_t size;              /* 用户要的字节数（不含头） */
-    struct fw_app_ctx *owner; /* 记到谁的账上；可空（框架自己分配） */
-    uint32_t magic;           /* 校验：不是我们发的指针一律不碰 */
+    size_t size;         /* 用户要的字节数（不含头） */
+    fw_app_ctx_t *owner; /* 记到谁的账上；可空（框架自己分配） */
+    uint32_t magic;      /* 校验：不是我们发的指针一律不碰 */
     uint32_t pad;
 };
 
-int fw_quota_reserve(struct fw_app_ctx *c, size_t bytes)
+int fw_quota_reserve(fw_app_ctx_t *c, size_t bytes)
 {
     size_t now;
     size_t quota;
@@ -50,7 +50,7 @@ int fw_quota_reserve(struct fw_app_ctx *c, size_t bytes)
     return 1;
 }
 
-void fw_quota_release(struct fw_app_ctx *c, size_t bytes)
+void fw_quota_release(fw_app_ctx_t *c, size_t bytes)
 {
     if (c == NULL) {
         return;
@@ -58,7 +58,7 @@ void fw_quota_release(struct fw_app_ctx *c, size_t bytes)
     (void)CM_ATOMIC_SUB_FETCH(&c->used_bytes, bytes, CM_MEM_RELAXED);
 }
 
-static void *alloc_impl(struct fw_app_ctx *c, size_t bytes, cm_err_t *out)
+static void *alloc_impl(fw_app_ctx_t *c, size_t bytes, cm_err_t *out)
 {
     const pf_ops_t *ops = fw_ops();
     struct fw_alloc_hdr *hdr;
@@ -99,7 +99,7 @@ void *fw_alloc(size_t bytes)
 }
 
 /** 内部版本：要错误码的地方（`res_acquire`）用这个，区分 QUOTA 与 NOMEM。 */
-void *fw_alloc_ex(struct fw_app_ctx *c, size_t bytes, cm_err_t *out)
+void *fw_alloc_ex(fw_app_ctx_t *c, size_t bytes, cm_err_t *out)
 {
     return alloc_impl(c, bytes, out);
 }
@@ -125,7 +125,7 @@ void fw_free(void *p)
 
 cm_err_t fw_res_set_quota(struct app_ctx *ctx, size_t bytes)
 {
-    struct fw_app_ctx *c = (struct fw_app_ctx *)ctx->fw;
+    fw_app_ctx_t *c = (fw_app_ctx_t *)ctx->fw;
 
     if (ctx == NULL || c == NULL) {
         return CM_ERR_INVALID;
@@ -136,7 +136,7 @@ cm_err_t fw_res_set_quota(struct app_ctx *ctx, size_t bytes)
 
 cm_err_t fw_res_revoke(struct app_ctx *ctx)
 {
-    struct fw_app_ctx *c = (struct fw_app_ctx *)ctx->fw;
+    fw_app_ctx_t *c = (fw_app_ctx_t *)ctx->fw;
     size_t used;
 
     if (ctx == NULL || c == NULL) {
@@ -153,7 +153,7 @@ cm_err_t fw_res_revoke(struct app_ctx *ctx)
 void fw_res_usage(const struct app_ctx *ctx, size_t *used_bytes, size_t *quota_bytes,
                   uint32_t *denied_count)
 {
-    const struct fw_app_ctx *c = (ctx == NULL) ? NULL : (const struct fw_app_ctx *)ctx->fw;
+    const fw_app_ctx_t *c = (ctx == NULL) ? NULL : (const fw_app_ctx_t *)ctx->fw;
 
     if (used_bytes != NULL) {
         *used_bytes = (c == NULL) ? 0u : CM_ATOMIC_LOAD(&c->used_bytes, CM_MEM_RELAXED);

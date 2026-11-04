@@ -21,7 +21,7 @@
 #include "platform/host-fake/pf_host_fake.h"
 
 /* ── 用例共享状态 ─────────────────────────────────────────────── */
-static struct fw_app_ctx *g_ctx;
+static fw_app_ctx_t *g_ctx;
 static uint32_t g_cancel_at; /* 第几次 sleep 之后注入取消；0 = 不注入 */
 /* 任务线程写、主线程读：`volatile` 不构成同步，一律 relaxed 原子。 */
 static int g_init_calls;

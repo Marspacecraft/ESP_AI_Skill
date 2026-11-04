@@ -15,7 +15,7 @@
 #include "framework/src/fw_internal.h"
 
 static fw_svc_id_t s_svc_id[FW_SVC_MAX];
-static struct fw_app_ctx *s_svc_owner[FW_SVC_MAX];
+static fw_app_ctx_t *s_svc_owner[FW_SVC_MAX];
 
 static int id_valid(fw_svc_id_t id)
 {
@@ -46,7 +46,7 @@ static int free_slot(void)
     return -1;
 }
 
-cm_err_t fw_svc_register_ctx(fw_svc_id_t id, struct fw_app_ctx *owner)
+cm_err_t fw_svc_register_ctx(fw_svc_id_t id, fw_app_ctx_t *owner)
 {
     int slot;
 
@@ -74,7 +74,7 @@ cm_err_t fw_svc_register_ctx(fw_svc_id_t id, struct fw_app_ctx *owner)
     return CM_OK;
 }
 
-cm_err_t fw_svc_unregister_ctx(fw_svc_id_t id, struct fw_app_ctx *owner)
+cm_err_t fw_svc_unregister_ctx(fw_svc_id_t id, fw_app_ctx_t *owner)
 {
     int slot = find_slot(id);
 
@@ -92,7 +92,7 @@ cm_err_t fw_svc_unregister_ctx(fw_svc_id_t id, struct fw_app_ctx *owner)
     return CM_OK;
 }
 
-struct fw_app_ctx *fw_svc_owner(fw_svc_id_t id)
+fw_app_ctx_t *fw_svc_owner(fw_svc_id_t id)
 {
     int slot;
 
@@ -105,7 +105,7 @@ struct fw_app_ctx *fw_svc_owner(fw_svc_id_t id)
 
 cm_err_t fw_svc_ready(fw_svc_id_t id)
 {
-    struct fw_app_ctx *owner;
+    fw_app_ctx_t *owner;
 
     if (!id_valid(id)) {
         return CM_ERR_INVALID;
@@ -124,7 +124,7 @@ cm_err_t fw_svc_ready(fw_svc_id_t id)
     return CM_OK;
 }
 
-void fw_svc_drop_owner(struct fw_app_ctx *owner)
+void fw_svc_drop_owner(fw_app_ctx_t *owner)
 {
     uint32_t i;
 
@@ -162,7 +162,7 @@ void fw_svc_forget(void)
  */
 cm_err_t fw_svc_register(fw_svc_id_t id)
 {
-    struct fw_app_ctx *c = fw_current_ctx();
+    fw_app_ctx_t *c = fw_current_ctx();
 
     if (c == NULL) {
         return CM_ERR_STATE; /* 不在 App 任务里：没有"当前 App"可注册 */
@@ -172,7 +172,7 @@ cm_err_t fw_svc_register(fw_svc_id_t id)
 
 cm_err_t fw_svc_unregister(fw_svc_id_t id)
 {
-    struct fw_app_ctx *c = fw_current_ctx();
+    fw_app_ctx_t *c = fw_current_ctx();
 
     if (c == NULL) {
         return CM_ERR_STATE;

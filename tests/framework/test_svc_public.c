@@ -17,7 +17,7 @@
 
 #define SVC_PROBE 11u
 
-static struct fw_app_ctx *g_inst;
+static fw_app_ctx_t *g_inst;
 static int g_registered; /* 跨任务读：一律 __atomic */
 static int g_unregistered;
 

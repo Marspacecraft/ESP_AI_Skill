@@ -90,13 +90,13 @@ cm_err_t fw_boot(void);
  * @param c 已经 `fw_app_ctx_new*()` 出来的上下文。
  * @return `CM_OK`；`CM_ERR_NOMEM` 表满（253 槽）；`CM_ERR_INVALID` 参数为空。
  *         注意事项：由 `fw_app_start()` 调用，不要在别处重复入表。 */
-cm_err_t fw_live_add(struct fw_app_ctx *c);
+cm_err_t fw_live_add(fw_app_ctx_t *c);
 
 /** 清空注册表与平台绑定，回到"未初始化"。**只给测试用**——真机上没有第二次启动。
  *  线程与中断：无任务运行时才可调。 */
 /** 把实例放进活实例表（`fw_app_start()` 内部调；管理器不直接用它）。
  *  @return `CM_OK`；`CM_ERR_NOMEM` 表满；`CM_ERR_INVALID` `c` 为 NULL。 */
-cm_err_t fw_live_add(struct fw_app_ctx *c);
+cm_err_t fw_live_add(fw_app_ctx_t *c);
 
 void fw_reset(void);
 
@@ -147,7 +147,7 @@ typedef uint8_t fw_svc_id_t;
  *                   NOT_SUPPORTED（该放弃）。所以 `exit()` 里**不需要**调
  *                   `fw_svc_unregister()`；想彻底摘掉用 `fw_svc_unregister()`。
  */
-cm_err_t fw_svc_register_ctx(fw_svc_id_t id, struct fw_app_ctx *owner);
+cm_err_t fw_svc_register_ctx(fw_svc_id_t id, fw_app_ctx_t *owner);
 
 /** 摘掉一个服务。
  *
@@ -156,7 +156,7 @@ cm_err_t fw_svc_register_ctx(fw_svc_id_t id, struct fw_app_ctx *owner);
  * @return `CM_OK`；未注册 → `CM_ERR_NOT_SUPPORTED`；owner 不符 → `CM_ERR_STATE`。
  *         线程与中断：App 任务里调；ISR 禁止。非阻塞。
  */
-cm_err_t fw_svc_unregister_ctx(fw_svc_id_t id, struct fw_app_ctx *owner);
+cm_err_t fw_svc_unregister_ctx(fw_svc_id_t id, fw_app_ctx_t *owner);
 
 /** 谁在提供这个服务。
  *
@@ -166,7 +166,7 @@ cm_err_t fw_svc_unregister_ctx(fw_svc_id_t id, struct fw_app_ctx *owner);
  *         注意事项：返回的指针可能在下一次 `fw_run_exit()` 之后失效——
  *                   要用它就得先确认对方还在跑（`fw_app_state()`）。
  */
-struct fw_app_ctx *fw_svc_owner(fw_svc_id_t id);
+fw_app_ctx_t *fw_svc_owner(fw_svc_id_t id);
 
 /** 这个服务现在能不能用。
  *
@@ -178,7 +178,7 @@ struct fw_app_ctx *fw_svc_owner(fw_svc_id_t id);
 cm_err_t fw_svc_ready(fw_svc_id_t id);
 
 /** 把某个 owner 注册的服务全部摘掉。**只给 `fw_run_exit()` 用**。 */
-void fw_svc_drop_owner(struct fw_app_ctx *owner);
+void fw_svc_drop_owner(fw_app_ctx_t *owner);
 
 /** 清空服务表。**只给 `fw_reset()` 用**。 */
 void fw_svc_forget(void);
@@ -275,7 +275,7 @@ void fw_uart_forget(void);
  * 别的任务（管理器、测试、退出路径）读。所以它们只能用 `CM_ATOMIC_*` 访问——
  * 不是 `volatile`（那不给原子性，TSan 一抓一个准），也没有锁，不该有锁。
  */
-struct fw_app_ctx {
+typedef struct fw_app_ctx {
     app_ctx_t pub; /* 必须是第一个成员：App 拿到的是 &pub */
     const app_desc_t *desc;
     uint32_t cancel;                     /* 取消位：1 = 有停止请求 */
@@ -291,28 +291,28 @@ struct fw_app_ctx {
     uint32_t hb_seq;                     /* 心跳序号（原子）：每喂一次 +1 */
     uint32_t hb_ms;                      /* 上一次喂心跳的时刻（原子） */
     uint32_t hb_base_ms;                 /* 进入 RUNNING 的时刻（原子）：从没喂过时当基准 */
-};
+} fw_app_ctx_t;
 
 /** 退出路径第 ③ 步：回收所有 `RES_LIFE_APP` 的槽位，恰好一次。
  *  只给 `fw_run_exit()` 用。`RES_LIFE_BOOT` 的槽位**不动**（不是我们的东西）。 */
-void fw_res_release_all(struct fw_app_ctx *c);
+void fw_res_release_all(fw_app_ctx_t *c);
 
 /** 要错误码的分配：区分 `CM_ERR_QUOTA`（你超了）与 `CM_ERR_NOMEM`（整机没了）。
  *  只给框架内部（`res_acquire`）用，App 侧只有 `fw_alloc`。 */
-void *fw_alloc_ex(struct fw_app_ctx *c, size_t bytes, cm_err_t *out);
+void *fw_alloc_ex(fw_app_ctx_t *c, size_t bytes, cm_err_t *out);
 
 /** 试着为 `bytes` 预留配额（原子地加，超额再退回）。
  *
  * @return 1 已预留；0 超配额（调用方该返回 `CM_ERR_QUOTA` / NULL）。
  *         线程与中断：App 任务里调；ISR 禁止。
  */
-int fw_quota_reserve(struct fw_app_ctx *c, size_t bytes);
+int fw_quota_reserve(fw_app_ctx_t *c, size_t bytes);
 
 /** 归还 `bytes` 配额。**只给 `fw_free()` 与资源回收路径用**。 */
-void fw_quota_release(struct fw_app_ctx *c, size_t bytes);
+void fw_quota_release(fw_app_ctx_t *c, size_t bytes);
 
 /** 这个实例在退出路径上回收了几个槽位。测试与诊断用。 */
-uint32_t fw_app_slots_released(const struct fw_app_ctx *c);
+uint32_t fw_app_slots_released(const fw_app_ctx_t *c);
 
 /* 跨任务读写的字段**必须**经 `common/include/cm_atomic.h` 的宏访问
  * （`CM_ATOMIC_LOAD` / `CM_ATOMIC_STORE` / `CM_ATOMIC_EXCHANGE` / ...）。
@@ -344,7 +344,7 @@ const void *fw_cap_ops(uint32_t bit);
 /** 清空注册表。只给 `fw_reset()`（测试收尾）用，板子无注销路径。 */
 void fw_cap_forget(void);
 
-struct fw_app_ctx *fw_current_ctx(void);
+fw_app_ctx_t *fw_current_ctx(void);
 
 /** 片间取消点：当前 App 收到取消位且不在退出中，就地走退出路径（**不返回**）。
  *
@@ -363,7 +363,7 @@ void fw_cancel_point(void);
  * @param c 目标实例；NULL 时无操作（不在 App 任务里）。
  *         线程与中断：App 任务里调；ISR 禁止。
  */
-void fw_heartbeat_touch(struct fw_app_ctx *c);
+void fw_heartbeat_touch(fw_app_ctx_t *c);
 
 /** 走完退出路径并结束当前任务——**永不返回**。
  *
@@ -375,7 +375,7 @@ void fw_heartbeat_touch(struct fw_app_ctx *c);
  *                   命中一次、永不结束）②`exit()` 恰好调用一次
  *                   ③（阶段 6 才有的资源回收）④置终态 ⑤结束任务。
  */
-void fw_run_exit(struct fw_app_ctx *c, fw_app_state_e end_state)
+void fw_run_exit(fw_app_ctx_t *c, fw_app_state_e end_state)
 #if defined(__GNUC__) || defined(__clang__)
     __attribute__((noreturn))
 #endif

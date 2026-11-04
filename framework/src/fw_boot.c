@@ -29,7 +29,7 @@
  * 并发：槽位读写一律 `CM_ATOMIC_*`（指针宽度由元素类型决定）；`s_live_lock` 只护住
  * 两个多步操作——"找空槽"与"定位后置空"——持有时间是 253 次比较，不等外部事件。
  * 锁不覆盖读者的扫描：读者看到的是某一瞬间的快照，这正是 `mgr.h` 承诺的语义。 */
-static struct fw_app_ctx *s_live[FW_LIVE_MAX];
+static fw_app_ctx_t *s_live[FW_LIVE_MAX];
 static uint32_t s_live_lock;
 static int s_booted;
 
@@ -45,7 +45,7 @@ static void live_unlock(void)
     CM_ATOMIC_STORE(&s_live_lock, 0u, CM_MEM_RELEASE);
 }
 
-static struct fw_app_ctx *slot_at(uint32_t i)
+static fw_app_ctx_t *slot_at(uint32_t i)
 {
     return CM_ATOMIC_LOAD(&s_live[i], CM_MEM_ACQUIRE);
 }
@@ -58,7 +58,7 @@ static struct fw_app_ctx *slot_at(uint32_t i)
  *         注意事项：任务建失败时调用方必须 `fw_live_remove()` 回滚——表里留一个
  *                   从未启动的实例，管理器会去停一个不存在的东西。
  */
-cm_err_t fw_live_add(struct fw_app_ctx *c)
+cm_err_t fw_live_add(fw_app_ctx_t *c)
 {
     uint32_t i;
 
@@ -95,7 +95,7 @@ cm_err_t fw_boot(void)
     s_booted = 1;
     for (i = 0; i < n; i++) {
         const app_desc_t *d = fw_app_at(i);
-        struct fw_app_ctx *c;
+        fw_app_ctx_t *c;
         cm_err_t rc;
 
         if (d == NULL || (d->flags & APP_FLAG_SYSTEM) == 0u) {
@@ -128,13 +128,13 @@ uint32_t fw_live_count(void)
     return n;
 }
 
-struct fw_app_ctx *fw_live_at(uint32_t index)
+fw_app_ctx_t *fw_live_at(uint32_t index)
 {
     uint32_t i;
     uint32_t seen = 0u;
 
     for (i = 0; i < FW_LIVE_MAX; i++) {
-        struct fw_app_ctx *c = slot_at(i);
+        fw_app_ctx_t *c = slot_at(i);
 
         if (c == NULL) {
             continue;
@@ -147,7 +147,7 @@ struct fw_app_ctx *fw_live_at(uint32_t index)
     return NULL;
 }
 
-void fw_live_remove(struct fw_app_ctx *c)
+void fw_live_remove(fw_app_ctx_t *c)
 {
     uint32_t i;
 

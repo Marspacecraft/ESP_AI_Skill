@@ -2,7 +2,7 @@
  *
  * 这一份只回答两个问题：**上下文长什么样、任务怎么起来**。退出路径在
  * `fw_exit.c`，切片等待在 `fw_delay.c`——它们要能互相调用，所以分开写，
- * 但共享 `struct fw_app_ctx`（见 fw_internal.h）。
+ * 但共享 `fw_app_ctx_t`（见 fw_internal.h）。
  *
  * 为什么任务入口要自己设 `_Thread_local`：`fw_delay_block()` 没有 ctx 参数
  * （App 的写法是 `fw_delay_block(100)`），框架要回答"现在是谁在睡"，只有两条路——
@@ -16,7 +16,7 @@
 /** 当前任务的上下文。**每个任务一份**，由 `fw_app_entry()` 设置。
  *  主线程、平台任务、ISR 里都是 NULL——那里的 `fw_delay_block()` 退化成
  *  "纯切片睡眠"，没有取消位可查。 */
-static _Thread_local struct fw_app_ctx *t_current;
+static _Thread_local fw_app_ctx_t *t_current;
 
 /** 任务入口：init → RUNNING → task。
  *
@@ -26,7 +26,7 @@ static _Thread_local struct fw_app_ctx *t_current;
  */
 static void fw_app_entry(void *arg)
 {
-    struct fw_app_ctx *c = (struct fw_app_ctx *)arg;
+    fw_app_ctx_t *c = (fw_app_ctx_t *)arg;
 
     t_current = c;
 
@@ -45,10 +45,10 @@ static void fw_app_entry(void *arg)
     fw_run_exit(c, FW_APP_STATE_FAILED);
 }
 
-struct fw_app_ctx *fw_app_ctx_new_with_id(const app_desc_t *desc, uint32_t id)
+fw_app_ctx_t *fw_app_ctx_new_with_id(const app_desc_t *desc, uint32_t id)
 {
     const pf_ops_t *ops = fw_ops();
-    struct fw_app_ctx *c;
+    fw_app_ctx_t *c;
 
     if (ops == NULL || desc == NULL || ops->mem_alloc == NULL) {
         return NULL;
@@ -63,7 +63,7 @@ struct fw_app_ctx *fw_app_ctx_new_with_id(const app_desc_t *desc, uint32_t id)
         return NULL;
     }
 
-    c = (struct fw_app_ctx *)ops->mem_alloc(sizeof *c);
+    c = (fw_app_ctx_t *)ops->mem_alloc(sizeof *c);
     if (c == NULL) {
         return NULL;
     }
@@ -76,7 +76,7 @@ struct fw_app_ctx *fw_app_ctx_new_with_id(const app_desc_t *desc, uint32_t id)
     return c;
 }
 
-struct fw_app_ctx *fw_app_ctx_new(const app_desc_t *desc)
+fw_app_ctx_t *fw_app_ctx_new(const app_desc_t *desc)
 {
     if (desc == NULL || desc->id < APP_ID_MIN || desc->id > APP_ID_MAX) {
         return NULL;
@@ -84,7 +84,7 @@ struct fw_app_ctx *fw_app_ctx_new(const app_desc_t *desc)
     return fw_app_ctx_new_with_id(desc, desc->id);
 }
 
-void fw_app_ctx_free(struct fw_app_ctx *c)
+void fw_app_ctx_free(fw_app_ctx_t *c)
 {
     const pf_ops_t *ops = fw_ops();
 
@@ -102,7 +102,7 @@ void fw_app_ctx_free(struct fw_app_ctx *c)
     ops->mem_free(c);
 }
 
-cm_err_t fw_app_start(struct fw_app_ctx *c)
+cm_err_t fw_app_start(fw_app_ctx_t *c)
 {
     const pf_ops_t *ops = fw_ops();
     pf_task_desc_t td;
@@ -140,12 +140,12 @@ cm_err_t fw_app_start(struct fw_app_ctx *c)
     return CM_OK;
 }
 
-uint32_t fw_app_id(const struct fw_app_ctx *c)
+uint32_t fw_app_id(const fw_app_ctx_t *c)
 {
     return (c != NULL) ? c->pub.id : (uint32_t)APP_ID_INVALID;
 }
 
-fw_app_state_e fw_app_state(const struct fw_app_ctx *c)
+fw_app_state_e fw_app_state(const fw_app_ctx_t *c)
 {
     if (c == NULL) {
         return FW_APP_STATE_EMPTY;
@@ -153,19 +153,19 @@ fw_app_state_e fw_app_state(const struct fw_app_ctx *c)
     return (fw_app_state_e)CM_ATOMIC_LOAD(&c->state, CM_MEM_ACQUIRE);
 }
 
-uint32_t fw_app_exit_calls(const struct fw_app_ctx *c)
+uint32_t fw_app_exit_calls(const fw_app_ctx_t *c)
 {
     return (c == NULL) ? 0u : CM_ATOMIC_LOAD(&c->exit_calls, CM_MEM_ACQUIRE);
 }
 
-void fw_app_request_cancel(struct fw_app_ctx *c)
+void fw_app_request_cancel(fw_app_ctx_t *c)
 {
     if (c != NULL) {
         CM_ATOMIC_STORE(&c->cancel, 1u, CM_MEM_RELEASE);
     }
 }
 
-struct fw_app_ctx *fw_current_ctx(void)
+fw_app_ctx_t *fw_current_ctx(void)
 {
     return t_current;
 }

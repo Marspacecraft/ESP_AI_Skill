@@ -46,7 +46,7 @@ static int demo_stopped(void)
 }
 
 /* 等一个实例进终态（STOPPED 或 FAILED）。 */
-static int wait_terminal(struct fw_app_ctx *c, uint32_t timeout_ms)
+static int wait_terminal(fw_app_ctx_t *c, uint32_t timeout_ms)
 {
     const pf_ops_t *real = pf_host_fake_ops_get();
     uint32_t t0 = real->clock_ms();
@@ -137,7 +137,7 @@ TT_CASE(stop_goes_stopped_and_exits_once)
 /* D18：重启 = 新建上下文 + **新 id**，旧 id 不复用。 */
 TT_CASE(restart_uses_a_fresh_id)
 {
-    struct fw_app_ctx *second;
+    fw_app_ctx_t *second;
     uint32_t old_id;
     uint32_t new_id = 0u;
     uint32_t ticks_before;
@@ -229,7 +229,7 @@ TT_CASE(boot_requires_init_and_happens_once)
 /* D19：管理器负责回收——先摘表、再释放，顺序写反就是野指针。 */
 TT_CASE(manager_reaps_stopped_instance)
 {
-    struct fw_app_ctx *c;
+    fw_app_ctx_t *c;
     uint32_t ticks;
 
     boot_workspace();

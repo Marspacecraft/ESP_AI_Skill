@@ -159,7 +159,7 @@ cm_err_t fw_event_take(evt_topic_t topic, void *buf, size_t cap_bytes, size_t *o
 cm_err_t fw_event_wait(evt_topic_t topic, void *buf, size_t cap_bytes, size_t *out_len,
                        uint32_t timeout_ms)
 {
-    struct fw_app_ctx *c = fw_current_ctx();
+    fw_app_ctx_t *c = fw_current_ctx();
     uint32_t start;
     cm_err_t rc;
 

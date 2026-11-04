@@ -159,7 +159,7 @@ static const app_desc_t res_desc = {
     .flags = APP_FLAG_SYSTEM,
 };
 
-static struct fw_app_ctx *start(int scenario)
+static fw_app_ctx_t *start(int scenario)
 {
     static const app_desc_t *apps[1];
     fw_manifest_t m;
@@ -189,7 +189,7 @@ static struct fw_app_ctx *start(int scenario)
 /* 取消之后必须等到**终态**（STOPPED/FAILED），不能停在 STOPPING：
  * 退出五步里 ①②③ 还在跑，此时读 `slots[]` 与 `fw_app_slots_released()` 会读到
  * "回收了一半"的中间态。这条在 host 上偶发过：`期望 4（STOPPED），实际 3（STOPPING）`。 */
-static void stop_it(struct fw_app_ctx *c)
+static void stop_it(fw_app_ctx_t *c)
 {
     fw_app_state_e st;
 
@@ -206,7 +206,7 @@ static void stop_it(struct fw_app_ctx *c)
     }
 }
 
-static void reap(struct fw_app_ctx *c)
+static void reap(fw_app_ctx_t *c)
 {
     if (c != NULL) {
         fw_live_remove(c);
@@ -219,7 +219,7 @@ static void reap(struct fw_app_ctx *c)
 
 TT_CASE(acquire_then_release_frees_the_slot_and_the_quota_usage)
 {
-    struct fw_app_ctx *c = start(1);
+    fw_app_ctx_t *c = start(1);
 
     TT_ASSERT_TRUE(c != NULL);
     TT_ASSERT_INT(1, flag_get(&g_done));
@@ -232,7 +232,7 @@ TT_CASE(acquire_then_release_frees_the_slot_and_the_quota_usage)
 
 TT_CASE(exit_releases_app_lifetime_slots_exactly_once)
 {
-    struct fw_app_ctx *c = start(2);
+    fw_app_ctx_t *c = start(2);
     uint32_t released;
 
     TT_ASSERT_TRUE(c != NULL);
@@ -253,7 +253,7 @@ TT_CASE(exit_releases_app_lifetime_slots_exactly_once)
 
 TT_CASE(boot_lifetime_slot_survives_exit)
 {
-    struct fw_app_ctx *c = start(3);
+    fw_app_ctx_t *c = start(3);
     uint32_t released;
 
     TT_ASSERT_TRUE(c != NULL);
@@ -274,7 +274,7 @@ TT_CASE(boot_lifetime_slot_survives_exit)
 
 TT_CASE(quota_denial_is_quota_not_nomem)
 {
-    struct fw_app_ctx *c = start(4);
+    fw_app_ctx_t *c = start(4);
 
     TT_ASSERT_TRUE(c != NULL);
     TT_ASSERT_INT(1, g_rc1);                 /* `fw_alloc(128)` 在 64 的额度下给 NULL */
@@ -290,7 +290,7 @@ TT_CASE(quota_denial_is_quota_not_nomem)
 
 TT_CASE(revoke_caps_allocations_at_current_usage)
 {
-    struct fw_app_ctx *c = start(5);
+    fw_app_ctx_t *c = start(5);
 
     TT_ASSERT_TRUE(c != NULL);
     TT_ASSERT_INT((int)CM_OK, g_rc1);
@@ -304,7 +304,7 @@ TT_CASE(revoke_caps_allocations_at_current_usage)
 
 TT_CASE(revoke_does_not_stop_the_app)
 {
-    struct fw_app_ctx *c;
+    fw_app_ctx_t *c;
 
     c = start(6);
     TT_ASSERT_TRUE(c != NULL);
@@ -338,7 +338,7 @@ TT_CASE(revoke_does_not_stop_the_app)
 
 TT_CASE(revoke_on_zero_usage_is_one_byte_not_unlimited)
 {
-    struct fw_app_ctx *c = start(7);
+    fw_app_ctx_t *c = start(7);
 
     TT_ASSERT_TRUE(c != NULL);
     TT_ASSERT_INT(1, g_quota); /* 压到 0 会变成"不限",所以取 1 */
@@ -350,7 +350,7 @@ TT_CASE(revoke_on_zero_usage_is_one_byte_not_unlimited)
 
 TT_CASE(revoke_is_a_ceiling_not_a_blacklist)
 {
-    struct fw_app_ctx *c = start(8);
+    fw_app_ctx_t *c = start(8);
 
     TT_ASSERT_TRUE(c != NULL);
     TT_ASSERT_INT(1, g_rc1);    /* 释放之后,同样大小还能再要 */

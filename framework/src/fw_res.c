@@ -21,7 +21,7 @@
  *
  * 这是整个文件里唯一的边界检查：App 传进来的地址必须落在自己的
  * `slots[]` 里，否则它就能往别人的上下文里写句柄。 */
-static int slot_index(const struct fw_app_ctx *c, const void *slot)
+static int slot_index(const fw_app_ctx_t *c, const void *slot)
 {
     const char *base = (const char *)&c->pub.slots[0];
     const char *p = (const char *)slot;
@@ -41,7 +41,7 @@ static int slot_index(const struct fw_app_ctx *c, const void *slot)
     return (int)off;
 }
 
-static void slot_free(struct fw_app_ctx *c, int i)
+static void slot_free(fw_app_ctx_t *c, int i)
 {
     const pf_ops_t *ops = fw_ops();
 
@@ -55,7 +55,7 @@ static void slot_free(struct fw_app_ctx *c, int i)
     c->pub.slots[i] = NULL;
 }
 
-static void slot_free_all(struct fw_app_ctx *c, int app_life_only)
+static void slot_free_all(fw_app_ctx_t *c, int app_life_only)
 {
     uint32_t i;
 
@@ -74,7 +74,7 @@ static void slot_free_all(struct fw_app_ctx *c, int app_life_only)
 cm_err_t res_acquire(void *slot, res_kind_e kind, size_t bytes, res_life_e life)
 {
     const pf_ops_t *ops = fw_ops();
-    struct fw_app_ctx *c = fw_current_ctx();
+    fw_app_ctx_t *c = fw_current_ctx();
     void *handle = NULL;
     int i;
 
@@ -121,7 +121,7 @@ cm_err_t res_acquire(void *slot, res_kind_e kind, size_t bytes, res_life_e life)
 
 void res_release(void *slot)
 {
-    struct fw_app_ctx *c = fw_current_ctx();
+    fw_app_ctx_t *c = fw_current_ctx();
     int i;
 
     if (c == NULL || slot == NULL) {
@@ -134,7 +134,7 @@ void res_release(void *slot)
     slot_free(c, i); /* 空槽位时是 no-op：重复调用安全 */
 }
 
-void fw_res_release_all(struct fw_app_ctx *c)
+void fw_res_release_all(fw_app_ctx_t *c)
 {
     if (c == NULL) {
         return;
@@ -142,7 +142,7 @@ void fw_res_release_all(struct fw_app_ctx *c)
     slot_free_all(c, 1);
 }
 
-uint32_t fw_app_slots_released(const struct fw_app_ctx *c)
+uint32_t fw_app_slots_released(const fw_app_ctx_t *c)
 {
     return (c == NULL) ? 0u : c->slots_released;
 }

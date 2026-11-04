@@ -30,7 +30,7 @@ static const pf_ops_t *ops(void)
     return pf_platform_ops();
 }
 
-static int wait_state(struct fw_app_ctx *c, fw_app_state_e want, uint32_t timeout_ms)
+static int wait_state(fw_app_ctx_t *c, fw_app_state_e want, uint32_t timeout_ms)
 {
     uint32_t t0 = ops()->clock_ms();
 
@@ -43,7 +43,7 @@ static int wait_state(struct fw_app_ctx *c, fw_app_state_e want, uint32_t timeou
     return 1;
 }
 
-static int wait_terminal(struct fw_app_ctx *c, uint32_t timeout_ms)
+static int wait_terminal(fw_app_ctx_t *c, uint32_t timeout_ms)
 {
     uint32_t t0 = ops()->clock_ms();
 
@@ -57,7 +57,7 @@ static int wait_terminal(struct fw_app_ctx *c, uint32_t timeout_ms)
 }
 
 /* 某个实例是否还在活实例表里（按指针相等找）。 */
-static int found_at_live(struct fw_app_ctx *c)
+static int found_at_live(fw_app_ctx_t *c)
 {
     uint32_t i;
 
@@ -122,7 +122,7 @@ TT_CASE(manager_starts_stops_and_reaps_a_child)
 {
     uint32_t id = 0u;
     uint32_t before = app_demo_ticks();
-    struct fw_app_ctx *child;
+    fw_app_ctx_t *child;
 
     ensure_started();
     TT_ASSERT_INT(CM_OK, fw_alloc_id(&id));
@@ -157,7 +157,7 @@ TT_CASE(manager_starts_stops_and_reaps_a_child)
 TT_CASE(live_table_lists_every_started_instance)
 {
     uint32_t id = 0u;
-    struct fw_app_ctx *child;
+    fw_app_ctx_t *child;
 
     ensure_started();
     TT_ASSERT_INT(CM_OK, fw_alloc_id(&id));

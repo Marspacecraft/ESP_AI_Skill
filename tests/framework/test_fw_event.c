@@ -13,7 +13,7 @@
 #define T_BUTTON 1u
 #define T_PAYLOAD 8u
 
-static struct fw_app_ctx *g_ctx;
+static fw_app_ctx_t *g_ctx;
 static int g_scenario;
 static int g_wait_rc;
 static int g_after_wait_ran; /* wait 之后那行有没有执行（取消场景必须为 0） */
@@ -99,7 +99,7 @@ static void stop_all(void)
         g_ctx = NULL;
     }
     while (fw_live_count() > 0u) {
-        struct fw_app_ctx *c = fw_live_at(0u);
+        fw_app_ctx_t *c = fw_live_at(0u);
 
         fw_app_request_cancel(c);
         for (int i = 0; i < 800; i++) {
@@ -130,9 +130,9 @@ static void setup(int scenario)
     TT_ASSERT_INT(CM_OK, fw_init(&apps_manifest, 1u));
 }
 
-static struct fw_app_ctx *start_waiter(void)
+static fw_app_ctx_t *start_waiter(void)
 {
-    struct fw_app_ctx *c = fw_app_ctx_new_with_id(&waiter_desc, 50u);
+    fw_app_ctx_t *c = fw_app_ctx_new_with_id(&waiter_desc, 50u);
 
     if (c == NULL || fw_app_start(c) != CM_OK) {
         return NULL;

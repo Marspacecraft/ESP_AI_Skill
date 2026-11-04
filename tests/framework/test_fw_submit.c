@@ -12,7 +12,7 @@
 
 #define SVC_FRAME 5u
 
-static struct fw_app_ctx *g_owner;
+static fw_app_ctx_t *g_owner;
 static uint32_t g_done_key;
 static int g_done_superseded;
 static int g_done_calls;
@@ -51,7 +51,7 @@ static const app_desc_t svc_desc = {
 static void stop_all(void)
 {
     while (fw_live_count() > 0u) {
-        struct fw_app_ctx *c = fw_live_at(0u);
+        fw_app_ctx_t *c = fw_live_at(0u);
 
         fw_app_request_cancel(c);
         for (int i = 0; i < 400; i++) {
@@ -65,9 +65,9 @@ static void stop_all(void)
     fw_reset();
 }
 
-static struct fw_app_ctx *start_owner(uint32_t id)
+static fw_app_ctx_t *start_owner(uint32_t id)
 {
-    struct fw_app_ctx *c = fw_app_ctx_new_with_id(&svc_desc, id);
+    fw_app_ctx_t *c = fw_app_ctx_new_with_id(&svc_desc, id);
 
     if (c == NULL || fw_app_start(c) != CM_OK) {
         return NULL;

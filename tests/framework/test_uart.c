@@ -101,7 +101,7 @@ static void reset_all(void)
     /* 表里每释放一个就少一个，所以"每次取第 0 个"而不是按下标遍历——
      * 边遍历边删会让下标跳过元素（旧仓库踩过：漏停一个任务，后面的用例活在脏世界里）。 */
     while (fw_live_count() > 0u) {
-        struct fw_app_ctx *c = fw_live_at(0u);
+        fw_app_ctx_t *c = fw_live_at(0u);
         int guard = 0;
 
         fw_app_request_cancel(c);
@@ -132,7 +132,7 @@ static void boot(bool with_board_hook)
 
 static void run_probe(int scenario)
 {
-    struct fw_app_ctx *c;
+    fw_app_ctx_t *c;
 
     g_scenario = scenario;
     CM_ATOMIC_STORE(&g_done, 0u, CM_MEM_RELEASE);

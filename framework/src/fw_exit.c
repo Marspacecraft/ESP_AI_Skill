@@ -21,7 +21,7 @@
  */
 #include "framework/src/fw_internal.h"
 
-void fw_run_exit(struct fw_app_ctx *c, fw_app_state_e end_state)
+void fw_run_exit(fw_app_ctx_t *c, fw_app_state_e end_state)
 {
     const pf_ops_t *ops;
 

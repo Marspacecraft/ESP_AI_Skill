@@ -215,7 +215,7 @@ static fw_manifest_t manifest_of(const app_desc_t *one)
 static void reset_all(void)
 {
     while (fw_live_count() > 0u) {
-        struct fw_app_ctx *c = fw_live_at(0u);
+        fw_app_ctx_t *c = fw_live_at(0u);
 
         fw_app_request_cancel(c);
         for (int i = 0; i < 400; i++) {
@@ -259,7 +259,7 @@ static int wait_until_truthy(const int *p, int want, uint32_t timeout_ms)
     return obs_get(p) >= want;
 }
 
-static int wait_terminal(struct fw_app_ctx *c, uint32_t timeout_ms)
+static int wait_terminal(fw_app_ctx_t *c, uint32_t timeout_ms)
 {
     uint32_t t0 = now_ms();
 
@@ -294,7 +294,7 @@ TT_CASE(cancel_stops_the_task_and_calls_exit_exactly_once)
 {
     reset_all();
     fw_manifest_t m = manifest_of(&ok_desc);
-    struct fw_app_ctx *c;
+    fw_app_ctx_t *c;
 
     TT_ASSERT_INT(CM_OK, fw_embed_start(&m));
     TT_ASSERT_TRUE(wait_until_truthy(&g_ticks, 2, 1000u));
@@ -321,7 +321,7 @@ TT_CASE(long_delay_is_cut_into_slices)
 {
     reset_all();
     fw_manifest_t m = manifest_of(&slow_desc);
-    struct fw_app_ctx *c;
+    fw_app_ctx_t *c;
     uint32_t t0;
     int st;
 
@@ -349,7 +349,7 @@ TT_CASE(init_failure_becomes_failed_and_exits_once)
 {
     reset_all();
     fw_manifest_t m = manifest_of(&bad_desc);
-    struct fw_app_ctx *c;
+    fw_app_ctx_t *c;
 
     TT_ASSERT_INT(CM_OK, fw_embed_start(&m));
     c = fw_live_at(0u);
@@ -400,7 +400,7 @@ static int start_service_host(void)
 
 TT_CASE(service_registry_answers_ready_then_unavailable_after_exit)
 {
-    struct fw_app_ctx *c;
+    fw_app_ctx_t *c;
 
     reset_all();
     g_ev_n = 0;
@@ -504,7 +504,7 @@ TT_CASE(submit_table_full_is_busy_not_nomem)
 TT_CASE(busy_loop_is_detected_but_cancel_does_not_stop_it)
 {
     fw_manifest_t m = manifest_of(&spin_desc);
-    struct fw_app_ctx *c;
+    fw_app_ctx_t *c;
 
     reset_all();
     __atomic_store_n(&g_spin, 1, __ATOMIC_RELEASE);

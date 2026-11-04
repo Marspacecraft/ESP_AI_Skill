@@ -128,14 +128,16 @@ app_ctx_t *ctx;           /* 指针不加 p 前缀 */
 typedef struct { ... } app_desc_t;        /* 结构体 */
 typedef enum { ... } fw_app_state_e;      /* 枚举 */
 typedef uint16_t      fw_svc_id_t;        /* 标量别名 */
-typedef struct fw_app_ctx *fw_app_h;      /* 不透明句柄：若给 typedef，用 _h 而不是 _p */
+typedef struct fw_app_ctx fw_app_ctx_t;   /* 不透明结构体：同样 _t，调用方写 fw_app_ctx_t * */
 ```
 
 - 枚举**值**全大写、带层前缀：`FW_APP_STATE_RUNNING`、`PF_CAP_UART`。
 - 不在类型名里重复 `struct`/`enum`：写 `app_desc_t`，不写 `struct app_desc_t`。
-- **指针类型后缀：本仓库目前不用 `_p`。** 旧规范有这条，但现在的句柄一律写成
-  `struct fw_app_ctx *`（不透明指针）而不是 `fw_app_ctx_p`——两个名字做同一件事只会多一处漂移。
-  将来若真引入指针 typedef，用 `_h`（handle）而不是 `_p`，并在本文补一节。
+- **不透明结构体也走 `_t`**：`typedef struct fw_app_ctx fw_app_ctx_t;`，调用方写
+  `fw_app_ctx_t *c`，**不写 `struct fw_app_ctx *c`**。理由与上一条同源——`struct` 前缀不该
+  在类型名里重复，句柄不该是唯一的例外；而且 `app_ctx_t` / `pf_mutex_t` / `pf_task_t` 都
+  已经是这个形状，多一个 `struct` 风格只会让人以为两套约法。
+- 指针类型后缀不用 `_p`。若将来真需要指针别名，用 `_h`（handle）而不是 `_p`，并补一节说明。
 - 类型前缀不强制：`app_desc_t` 里的 `app_` 指**被描述的对象**，不是写它的那一层。
 
 ---

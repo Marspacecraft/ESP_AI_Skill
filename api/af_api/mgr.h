@@ -41,7 +41,7 @@ typedef enum {
 } fw_app_state_e;
 
 /** 不透明的实例上下文。App 只能持有指针，**不许解引用**（布局属于框架内部）。 */
-struct fw_app_ctx;
+typedef struct fw_app_ctx fw_app_ctx_t;
 
 /* ── 选一个 id ──────────────────────────────────────────────────── */
 
@@ -67,7 +67,7 @@ cm_err_t fw_alloc_id(uint32_t *out);
  *         注意事项：由框架的分配器给出，必须 `fw_app_ctx_free()` 释放；
  *                   失败时不留任何状态。新实例的 id 必须与旧实例不同。
  */
-struct fw_app_ctx *fw_app_ctx_new(const app_desc_t *desc);
+fw_app_ctx_t *fw_app_ctx_new(const app_desc_t *desc);
 
 /** 同 `fw_app_ctx_new()`，但**显式指定实例 id**（重启用这个，D18）。
  *
@@ -78,7 +78,7 @@ struct fw_app_ctx *fw_app_ctx_new(const app_desc_t *desc);
  *         注意事项：**不会**检查 id 是否已被别人用掉——那是 `fw_alloc_id()` 的
  *                   职责；这里只保证范围合法。
  */
-struct fw_app_ctx *fw_app_ctx_new_with_id(const app_desc_t *desc, uint32_t id);
+fw_app_ctx_t *fw_app_ctx_new_with_id(const app_desc_t *desc, uint32_t id);
 
 /** 释放上下文。**只能在任务已经结束之后调**（任务还在跑就释放 = UAF）。
  *
@@ -88,7 +88,7 @@ struct fw_app_ctx *fw_app_ctx_new_with_id(const app_desc_t *desc, uint32_t id);
  *                   也不会留下悬垂指针。想"先认领、再释放"两步走仍然可以：显式
  *                   `fw_live_remove()` 之后再调这里（对不在表里的指针无操作）。
  */
-void fw_app_ctx_free(struct fw_app_ctx *c);
+void fw_app_ctx_free(fw_app_ctx_t *c);
 
 /** 为上下文创建任务，任务里依次跑 `init()` → `task()`。
  *
@@ -100,7 +100,7 @@ void fw_app_ctx_free(struct fw_app_ctx *c);
  *                   `task()` 返回都会走退出路径，那条路径**不返回**，所以本函数
  *                   返回后状态还会继续变——要等 `RUNNING` 得自己轮询 `fw_app_state()`。
  */
-cm_err_t fw_app_start(struct fw_app_ctx *c);
+cm_err_t fw_app_start(fw_app_ctx_t *c);
 
 /** 置取消位：让这个实例在**下一个让出点**走退出路径。
  *
@@ -110,24 +110,24 @@ cm_err_t fw_app_start(struct fw_app_ctx *c);
  *                   纯计算里——那种情况框架既发现不了也停不掉（设计边界）。
  *                   已经处于退出路径（`exit()` 正在跑）时再置位不会二次退出。
  */
-void fw_app_request_cancel(struct fw_app_ctx *c);
+void fw_app_request_cancel(fw_app_ctx_t *c);
 
 /* ── 观察 ───────────────────────────────────────────────────────── */
 
 /** 这个实例的 id（`[2,254]`）。`c` 为 NULL 时返回 `APP_ID_INVALID`。
  *
- * 为什么需要它：`struct fw_app_ctx` 是不透明的，管理器看得见指针却读不到 id，
+ * 为什么需要它：`fw_app_ctx_t` 是不透明的，管理器看得见指针却读不到 id，
  * 而日志、服务归属、去重判断全都要 id。只暴露这一个读值函数，不暴露布局。
  * 注意事项：id 在实例生命周期内不变；重启是**新实例、新 id**（D18）。 */
-uint32_t fw_app_id(const struct fw_app_ctx *c);
+uint32_t fw_app_id(const fw_app_ctx_t *c);
 
 /** 当前状态。`c` 为 NULL 时返回 `FW_APP_STATE_EMPTY`。
  *  注意事项：这是某一瞬间的快照，下一秒可能已经变了。 */
-fw_app_state_e fw_app_state(const struct fw_app_ctx *c);
+fw_app_state_e fw_app_state(const fw_app_ctx_t *c);
 
 /** `exit()` 至今被调用过几次。正常是 1（含启动失败）。
  *  @param c 目标实例；NULL 时返回 0。 */
-uint32_t fw_app_exit_calls(const struct fw_app_ctx *c);
+uint32_t fw_app_exit_calls(const fw_app_ctx_t *c);
 
 /** **所有 `fw_app_start()` 拉起、且尚未被摘表**的实例个数。
  *  包含已经进 STOPPED/FAILED 的——它们在管理器回收之前一直留在表里（D53），
@@ -140,7 +140,7 @@ uint32_t fw_live_count(void);
  *         注意事项：这是某一瞬间的快照，别的任务摘表会让后面的项前移；
  *                   遍历时以 `fw_live_count()` 为准，别缓存下标。
  */
-struct fw_app_ctx *fw_live_at(uint32_t index);
+fw_app_ctx_t *fw_live_at(uint32_t index);
 
 /** 把一个实例从活实例表里摘掉（**不释放它**，见 D19）。
  *
@@ -152,7 +152,7 @@ struct fw_app_ctx *fw_live_at(uint32_t index);
  *                   摘表是"我认领了它的结局"这一步——**没摘表的死实例会一直留着**，
  *                   所以管理器漏掉一个，表里就永远多一个（不会被框架偷偷清掉）。
  */
-void fw_live_remove(struct fw_app_ctx *c);
+void fw_live_remove(fw_app_ctx_t *c);
 
 /* ── 清单里有什么（管理器要知道"可以起谁"）────────────────────── */
 

@@ -11,7 +11,7 @@
 #include "framework/src/fw_internal.h"
 #include "platform/host-fake/pf_host_fake.h"
 
-static struct fw_app_ctx *g_ctx;
+static fw_app_ctx_t *g_ctx;
 static int g_scenario;
 static int g_done;
 static int g_ok1, g_ok2, g_ok3;
@@ -93,7 +93,7 @@ static const app_desc_t quota_desc = {
 static void stop_all(void)
 {
     while (fw_live_count() > 0u) {
-        struct fw_app_ctx *c = fw_live_at(0u);
+        fw_app_ctx_t *c = fw_live_at(0u);
 
         fw_app_request_cancel(c);
         for (int i = 0; i < 400; i++) {

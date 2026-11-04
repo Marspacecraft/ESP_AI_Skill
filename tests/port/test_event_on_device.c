@@ -140,7 +140,7 @@ TT_CASE(wait_times_out_on_a_real_timer)
 {
     static const app_desc_t *apps[1];
     fw_manifest_t m;
-    struct fw_app_ctx *c;
+    fw_app_ctx_t *c;
 
     fw_reset();
     apps[0] = &waiter_desc;
@@ -246,7 +246,7 @@ TT_CASE(cancel_interrupts_the_wait)
 {
     static const app_desc_t *apps[1];
     fw_manifest_t m;
-    struct fw_app_ctx *c;
+    fw_app_ctx_t *c;
     uint32_t t0;
 
     fw_reset();

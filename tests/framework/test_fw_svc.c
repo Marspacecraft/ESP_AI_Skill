@@ -13,7 +13,7 @@
 #define SVC_STORAGE 1u
 #define SVC_DISPLAY 2u
 
-static struct fw_app_ctx *g_owner;
+static fw_app_ctx_t *g_owner;
 
 /* 一个"服务 App"：起来就一直等取消，够用来验 owner 状态。 */
 static void svc_task(app_ctx_t *ctx)
@@ -42,7 +42,7 @@ static const app_desc_t svc_desc = {
 static void stop_all(void)
 {
     while (fw_live_count() > 0u) {
-        struct fw_app_ctx *c = fw_live_at(0u);
+        fw_app_ctx_t *c = fw_live_at(0u);
 
         fw_app_request_cancel(c);
         for (int i = 0; i < 400; i++) {
@@ -57,9 +57,9 @@ static void stop_all(void)
 }
 
 /* 起一个在跑的实例并等它 RUNNING（owner 只有 RUNNING 才算"可用"）。 */
-static struct fw_app_ctx *start_owner(uint32_t id)
+static fw_app_ctx_t *start_owner(uint32_t id)
 {
-    struct fw_app_ctx *c = fw_app_ctx_new_with_id(&svc_desc, id);
+    fw_app_ctx_t *c = fw_app_ctx_new_with_id(&svc_desc, id);
 
     if (c == NULL) {
         return NULL;
@@ -135,7 +135,7 @@ TT_CASE(owner_exit_leaves_an_unavailable_marker)
 /* 崩溃后的重启：新实例重新注册同一个 id，必须成功（这就是"可重试"）。 */
 TT_CASE(restarted_owner_can_claim_the_slot_back)
 {
-    struct fw_app_ctx *second;
+    fw_app_ctx_t *second;
 
     setup();
     g_owner = start_owner(9u);
@@ -170,8 +170,8 @@ TT_CASE(double_register_is_rejected_not_idempotent)
 
 TT_CASE(other_owner_cannot_steal_or_drop)
 {
-    struct fw_app_ctx *a;
-    struct fw_app_ctx *b;
+    fw_app_ctx_t *a;
+    fw_app_ctx_t *b;
 
     setup();
     a = start_owner(9u);
@@ -188,7 +188,7 @@ TT_CASE(other_owner_cannot_steal_or_drop)
 
 TT_CASE(bad_arguments_are_rejected)
 {
-    struct fw_app_ctx *a;
+    fw_app_ctx_t *a;
 
     setup();
     a = start_owner(9u);

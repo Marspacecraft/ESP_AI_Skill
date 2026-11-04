@@ -19,7 +19,7 @@
 
 void fw_cancel_point(void)
 {
-    struct fw_app_ctx *c = fw_current_ctx();
+    fw_app_ctx_t *c = fw_current_ctx();
 
     if (c == NULL) {
         return; /* 不在 App 任务里：没有取消位可查 */
@@ -35,7 +35,7 @@ void fw_cancel_point(void)
 void fw_delay_block(uint32_t ms)
 {
     const pf_ops_t *ops = fw_ops();
-    struct fw_app_ctx *c;
+    fw_app_ctx_t *c;
     uint32_t remaining = ms;
 
     if (ops == NULL || ops->sleep_ms == NULL) {

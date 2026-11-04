@@ -314,7 +314,7 @@ cm_err_t rc = fw_svc_ready(SVC_STORAGE);
 uint32_t id = 0u;
 if (fw_alloc_id(&id) != CM_OK) { /* 号发完了（253 个） */ }
 
-struct fw_app_ctx *c = fw_app_ctx_new_with_id(&some_desc, id);
+fw_app_ctx_t *c = fw_app_ctx_new_with_id(&some_desc, id);
 if (c == NULL) { /* 平台表没绑 / 没内存 */ }
 
 if (fw_app_start(c) != CM_OK) { /* 平台拒绝建任务 */ }

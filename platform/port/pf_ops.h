@@ -61,7 +61,7 @@ typedef struct pf_task pf_task_t;
  * 只有四件事。**没有优先级**：框架不设优先级分带，平台的调度策略由平台自己定，
  * 但必须保证所有任务可被抢占（否则 App 里的 fw_delay_block() 会让整机饿死）。 */
 typedef struct pf_task_desc {
-    const char *name;         /* 只用于诊断；平台可截断；框架不依赖内容（可为 NULL） */
+    const char *name; /* 只用于诊断；平台可截断；框架不依赖内容（可为 NULL） */
     void (*entry)(void *arg); /* 任务入口；返回即等于任务结束 */
     void *arg;                /* 传给 entry 的参数；可为 NULL，框架原样转交 */
     uint32_t stack_bytes;     /* 栈字节数，须 >= PF_TASK_MIN_STACK */

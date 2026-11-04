@@ -191,7 +191,7 @@ TT_CASE(exit_releases_app_lifetime_slots_exactly_once)
         pf_host_fake_ops_get()->sleep_ms(2u);
     }
     TT_ASSERT_INT((int)FW_APP_STATE_STOPPED, (int)fw_app_state(g_ctx));
-    TT_ASSERT_INT(1, g_exit_saw_slot);                   /* exit() 里槽位还在 → 回收发生在其后 */
+    TT_ASSERT_INT(1, g_exit_saw_slot); /* exit() 里槽位还在 → 回收发生在其后 */
     TT_ASSERT_INT(3, (int)fw_app_slots_released(g_ctx)); /* 恰好三个 */
     for (uint32_t i = 0; i < APP_CTX_SLOTS; i++) {
         TT_ASSERT_TRUE(g_ctx->pub.slots[i] == NULL);

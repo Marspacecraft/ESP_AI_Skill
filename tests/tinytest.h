@@ -193,24 +193,24 @@ TT_UNUSED static int tt_summary(void)
         }                                                                                          \
     } while (0)
 
-#define TT_ASSERT_STR(expect, actual)                                                              \
-    do {                                                                                           \
-        const char *tt_e_ = (expect);                                                              \
-        const char *tt_a_ = (actual);                                                              \
-        if (tt_e_ == NULL || tt_a_ == NULL) {                                                      \
-            if (tt_e_ != tt_a_) {                                                                  \
-                char tt_buf_[280]; /* 与下面一支同宽：两段 %.120s + 中文前缀刚好 259 字节 */       \
-                snprintf(tt_buf_, sizeof tt_buf_, "期望 \"%.120s\", 实际 \"%.120s\"",              \
-                         tt_e_ ? tt_e_ : "(null)", tt_a_ ? tt_a_ : "(null)");                      \
-                tt_fail(__FILE__, __LINE__, tt_buf_);                                              \
-                return;                                                                            \
-            }                                                                                      \
-        } else if (strcmp(tt_e_, tt_a_) != 0) {                                                    \
-            char tt_buf_[280];                                                                     \
-            snprintf(tt_buf_, sizeof tt_buf_, "期望 \"%.120s\", 实际 \"%.120s\"", tt_e_, tt_a_);   \
-            tt_fail(__FILE__, __LINE__, tt_buf_);                                                  \
-            return;                                                                                \
-        }                                                                                          \
+#define TT_ASSERT_STR(expect, actual)                                                                          \
+    do {                                                                                                       \
+        const char *tt_e_ = (expect);                                                                          \
+        const char *tt_a_ = (actual);                                                                          \
+        if (tt_e_ == NULL || tt_a_ == NULL) {                                                                  \
+            if (tt_e_ != tt_a_) {                                                                              \
+                char tt_buf_[280]; /* 与下面一支同宽：两段 %.120s + 中文前缀刚好 259 字节 */ \
+                snprintf(tt_buf_, sizeof tt_buf_, "期望 \"%.120s\", 实际 \"%.120s\"",                          \
+                         tt_e_ ? tt_e_ : "(null)", tt_a_ ? tt_a_ : "(null)");                                  \
+                tt_fail(__FILE__, __LINE__, tt_buf_);                                                          \
+                return;                                                                                        \
+            }                                                                                                  \
+        } else if (strcmp(tt_e_, tt_a_) != 0) {                                                                \
+            char tt_buf_[280];                                                                                 \
+            snprintf(tt_buf_, sizeof tt_buf_, "期望 \"%.120s\", 实际 \"%.120s\"", tt_e_, tt_a_);               \
+            tt_fail(__FILE__, __LINE__, tt_buf_);                                                              \
+            return;                                                                                            \
+        }                                                                                                      \
     } while (0)
 
 #define TT_SKIP(reason)                                                                            \

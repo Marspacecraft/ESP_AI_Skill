@@ -21,14 +21,19 @@ jobs:
 
       # check_link.py 优先用 clang -M 取依赖闭包；ubuntu 镜像自带 cc 但没有 clang，
       # 缺了会回退到 cc（也能跑），这里显式装上，保证两台机器的判定逻辑一致。
-      # 排版门禁（check_format.py）也要 clang-format：`apt` 里是独立包，`brew` 里也是。
-      - name: Install clang + clang-format (linux)
+      - name: Install clang (linux)
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y clang clang-format
+        run: sudo apt-get update && sudo apt-get install -y clang
 
-      - name: Install clang-format (macOS)
-        if: runner.os == 'macOS'
-        run: command -v clang-format || brew install clang-format
+      # 排版门禁必须用**仓库钉的那个版本**（18.1.8，见 tools/check_format.py 的
+      # PINNED_VERSION）。不能用发行版仓库里的：apt 是 18.x、brew 是更新的版本，
+      # 而 clang-format 的排版结果跨版本会变——版本不一致就会出现"文件没人碰却红了"
+      # 那种最糟的假红。pip 的 wheel 在各平台一致，所以三个作业都走 pip。
+      - name: Install pinned clang-format 18.1.8
+        run: |
+          python3 -m pip install --user clang-format==18.1.8
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/bin/clang-format" --version
 
       - name: Show toolchain
         run: |
@@ -73,8 +78,15 @@ jobs:
           command -v cc || ln -sf "$(command -v gcc)" /usr/bin/cc
           cc --version | head -1
           python3 --version
-          # 排版门禁在 MSYS 上若拿不到 clang-format 会打 SKIP（见 check_format.py 的头注释）。
-          command -v clang-format && clang-format --version || echo "clang-format 不可用（格式门禁会 SKIP）"
+
+      # 格式门禁同样要钉住的 18.1.8。MSYS 的 python 不一定装得上别的平台的 wheel，
+      # 装不上就退回 pacman 的 clang：版本不符时 check_format.py 打 SKIP，而不是
+      # 用一个不同的版本去判红（那会把别人的文件判成错的）。
+      - name: Install pinned clang-format 18.1.8
+        run: |
+          python3 -m pip install --user clang-format==18.1.8 \
+            || echo "pip 装不上：格式门禁会因版本不符而 SKIP"
+          command -v clang-format && clang-format --version || echo "没有 clang-format"
 
       - name: Build + gates + host tests
         run: ./build.sh run

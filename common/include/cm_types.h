@@ -35,17 +35,17 @@ extern "C" {
  *     现场就只能靠猜。
  */
 typedef enum {
-    CM_OK = 0,                /**< 成功。所有 API 的零值都是它，便于 `if (rc)` 判定 */
-    CM_ERR_INVALID = 1,       /**< 参数非法（NULL、越界、状态不对） */
-    CM_ERR_NOMEM = 2,         /**< 内存不足 */
+    CM_OK = 0,          /**< 成功。所有 API 的零值都是它，便于 `if (rc)` 判定 */
+    CM_ERR_INVALID = 1, /**< 参数非法（NULL、越界、状态不对） */
+    CM_ERR_NOMEM = 2,   /**< 内存不足 */
     CM_ERR_NOT_SUPPORTED = 3, /**< 这块板没有这个能力（合法状态，不是故障） */
     CM_ERR_UNAVAILABLE = 4,   /**< 能力在，但当前不可用（服务 FAILED / 未就绪） */
     CM_ERR_VERSION = 5,       /**< 契约版本不匹配 */
     CM_ERR_TIMEOUT = 6,       /**< 等待超时 */
     CM_ERR_BUSY = 7,          /**< 同一 key 已有未完成的提交 */
-    CM_ERR_STATE = 8,         /**< 状态机上不允许这个动作（如对 STOPPED 之外的再 start） */
-    CM_ERR_CANCELED = 9,      /**< 预留：**当前无产出者**，不要用它做分支 */
-    CM_ERR_QUOTA = 10         /**< 超出了本 App 的资源配额（不是"系统没内存"） */
+    CM_ERR_STATE = 8, /**< 状态机上不允许这个动作（如对 STOPPED 之外的再 start） */
+    CM_ERR_CANCELED = 9, /**< 预留：**当前无产出者**，不要用它做分支 */
+    CM_ERR_QUOTA = 10    /**< 超出了本 App 的资源配额（不是"系统没内存"） */
 } cm_err_t;
 
 /** 错误码的稳定短名，只用于日志与测试输出。

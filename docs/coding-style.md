@@ -225,13 +225,14 @@ static bool port_open(uint32_t port)
 - 指针 `*` 贴变量名：`const char *name`。
 - 一元运算符贴操作数；二元运算符两侧空格；`,` 后空格。
 - 不留行尾空白；文件以单个换行结尾。
-- **排版不靠记**：仓库根有 [`.clang-format`](../.clang-format)，它编码的就是本节；
+- **排版不靠记**：仓库根有 [`.clang-format`](../.clang-format)，它编码的就是本节，门禁 `tools/check_format.py` 会查；
   `./build.sh run` 里的**格式门禁**（`tools/check_format.py`）会把"与样式文件不一致"
   变成红灯，所以本节不需要背——写错了门禁会说哪个文件。
 
 ```bash
-xcrun clang-format -i <file>...            # macOS 自带（Xcode 工具链）
-git ls-files '*.c' '*.h' | xargs xcrun clang-format -i    # 全仓
+python3 -m pip install --user clang-format==18.1.8    # 仓库基准版本，只装一次
+clang-format -i <file>...                            # 单文件
+git ls-files '*.c' '*.h' | xargs clang-format -i     # 全仓
 ```
 
   配置里有三项是刻意非默认的：`BreakBeforeBraces: Linux`（不是 LLVM 的 `Attach`）、

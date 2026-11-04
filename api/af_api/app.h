@@ -98,12 +98,12 @@ typedef void (*app_task_fn)(app_ctx_t *ctx);
 
 /** 一个 App 的全部声明。**由清单持有，必须是静态常量**（框架不拷贝名字）。 */
 typedef struct app_desc {
-    uint32_t id;          /**< 2..254；0/1 保留；重复 = 启动失败 */
-    const char *name;     /**< 只用于日志；不得为 NULL；不参与任何判定 */
-    app_init_fn init;     /**< 必需；NULL 视为清单错误 */
-    app_exit_fn exit;     /**< 必需；NULL 视为清单错误（否则资源无人回收） */
-    app_task_fn task;     /**< 必需；NULL 视为清单错误 */
-    uint32_t flags;       /**< `APP_FLAG_SYSTEM` 等位；未知位必须为 0 */
+    uint32_t id;      /**< 2..254；0/1 保留；重复 = 启动失败 */
+    const char *name; /**< 只用于日志；不得为 NULL；不参与任何判定 */
+    app_init_fn init; /**< 必需；NULL 视为清单错误 */
+    app_exit_fn exit; /**< 必需；NULL 视为清单错误（否则资源无人回收） */
+    app_task_fn task; /**< 必需；NULL 视为清单错误 */
+    uint32_t flags;   /**< `APP_FLAG_SYSTEM` 等位；未知位必须为 0 */
     uint32_t stack_bytes; /**< 主任务栈，>= `APP_STACK_MIN`；**平台按此分配，不许自动抬栈** */
 } app_desc_t;
 
@@ -111,7 +111,7 @@ typedef struct app_desc {
  *  用 NULL 结尾会让"重复 id"检查漏掉最后一个）。 */
 typedef struct fw_manifest {
     const app_desc_t *const *apps; /**< 指向静态数组；count>0 时不得为 NULL */
-    uint32_t count;                /**< 0 表示这份清单为空（合法，但不算启动成功） */
+    uint32_t count; /**< 0 表示这份清单为空（合法，但不算启动成功） */
 } fw_manifest_t;
 
 /** 本仓库自带的 App 清单。**由 App 层实现**（`apps/app_manifest.c`）。

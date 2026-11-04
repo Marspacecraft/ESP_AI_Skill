@@ -123,6 +123,9 @@ link 面: PASS（5 个 tag，16 个对外头，闭包逐条包含关系成立）
    为什么双重——某个 `main` 忘了 `return tt_summary()` 时退出码永远是 0，只看退出码会漏。
 4. **空集不是失败**：没有任何用例时打印 `no tests` 并返回 0。但 `no tests` **不许被说成"通过"**。
 5. **六道门禁是 `run` 模式的一部分**，顺序固定：入口唯一 → link 面 → 纯 C 边界 → 能力目录 → 服务号 → 格式。
+   最后一道要求 `clang-format` 版本等于仓库基准 **18.1.8**（`tools/check_format.py` 的 `PINNED_VERSION`）；
+   本机版本不符时它打 `SKIP` 并返回 0——这不是放行，而是「不该用我的版本判你的文件」。
+   本地想强制：`python3 -m pip install --user clang-format==18.1.8`。
    任何一道红，整轮 rc=1。
 
 ### 3.3 编译标志（每一条都有原因）
@@ -167,7 +170,7 @@ CC="cc -fsanitize=thread -g" ./build.sh run
 | 纯 C 边界 | `python3 tools/check_purity.py` | `common/ api/ framework/ apps/` 里不许出现 SDK 头与 RTOS 符号 | 在 `apps/demo/app_demo.c` 加 `#include "esp_log.h"` → `禁止的头 'esp_log.h'（命中 'esp_'）` |
 | 能力目录 | `python3 tools/check_caps.py` | `pf_ops.h` 的 `PF_CAP_*` ↔ `docs/generated/catalog.md` 双向一致（位号、宏、接口头三处） | 目录里给 `PF_CAP_DISPLAY` 填一个不存在的 `api/af_api/disp.h` → `FAIL（1 处不一致）` |
 | 服务号 | `python3 tools/check_svc_ids.py` | `api/af_api/*.h` 的 `*_SVC_ID` ↔ `docs/generated/svc-ids.md` 双向一致，且**同一个号不许被两个服务占用** | 让两个头都写 `#define X_SVC_ID 5u` → `FAIL（1 处不一致）：服务号 5 被两个宏占用` |
-| 格式 | `python3 tools/check_format.py` | 每个 `.c`/`.h` 与仓库根的 `.clang-format` 一致（`clang-format --dry-run --Werror`）；本机找不到 clang-format 时打 SKIP，CI 装了所以 CI 上必查 | 把一行缩进改多两格 → `格式: FAIL（1/73 个文件与 .clang-format 不一致）` |
+| 格式 | `python3 tools/check_format.py` | 每个 `.c`/`.h` 与仓库根的 `.clang-format` 一致（`clang-format --dry-run --Werror`）；**版本必须等于仓库基准 `18.1.8`**：版本不符时打 SKIP 而不是判红（跨版本排版结果不同，用别的版本判红就是假红），CI 用 `pip install clang-format==18.1.8` 装同一个版本 | 把一行缩进改多两格 → `格式: FAIL（1/73 个文件与 .clang-format 不一致）` |
 
 每个检查器都有 `--selftest`，且**至少三条负向用例**——不能红的检查器等于没有检查器：
 

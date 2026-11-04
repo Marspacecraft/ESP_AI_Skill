@@ -285,12 +285,12 @@ typedef struct fw_app_ctx {
     res_kind_e slot_kind[APP_CTX_SLOTS]; /* 每个槽位的资源种类（槽位为空时无意义） */
     res_life_e slot_life[APP_CTX_SLOTS]; /* 生命周期：决定退出路径管不管它 */
     uint32_t slots_released;             /* 退出路径回收了几个槽位（测试用） */
-    size_t used_bytes;                   /* 记账：本实例当前占用的堆字节数（原子） */
-    size_t quota_bytes;                  /* 0 = 不限 */
-    uint32_t denied_count;               /* 因配额被拒的次数（原子） */
-    uint32_t hb_seq;                     /* 心跳序号（原子）：每喂一次 +1 */
-    uint32_t hb_ms;                      /* 上一次喂心跳的时刻（原子） */
-    uint32_t hb_base_ms;                 /* 进入 RUNNING 的时刻（原子）：从没喂过时当基准 */
+    size_t used_bytes;     /* 记账：本实例当前占用的堆字节数（原子） */
+    size_t quota_bytes;    /* 0 = 不限 */
+    uint32_t denied_count; /* 因配额被拒的次数（原子） */
+    uint32_t hb_seq;       /* 心跳序号（原子）：每喂一次 +1 */
+    uint32_t hb_ms;        /* 上一次喂心跳的时刻（原子） */
+    uint32_t hb_base_ms;   /* 进入 RUNNING 的时刻（原子）：从没喂过时当基准 */
 } fw_app_ctx_t;
 
 /** 退出路径第 ③ 步：回收所有 `RES_LIFE_APP` 的槽位，恰好一次。
